@@ -1,0 +1,26 @@
+@CoverLetter_Api_HostAddress = http://localhost:5066
+
+### Health Check
+GET {{CoverLetter_Api_HostAddress}}/health
+Accept: application/json
+
+### Generate Cover Letter
+POST {{CoverLetter_Api_HostAddress}}/generate-cover-letter
+Content-Type: application/json
+
+{
+  "jobDescription": "We are looking for a junior Software Engineer with 1+ years of experience in .NET and C#. The ideal candidate should have experience with microservices architecture, REST APIs, and cloud technologies (Azure/AWS). Strong knowledge of SQL databases and Entity Framework is required. Experience with Docker and Kubernetes is a plus.",
+  "cvText": "OSAMA M. ELZEKRED\n+(20) 1090768155 ⋄ Egypt\nosamaelzekred@gmail.com ⋄ linkedin.com/in/osama-Elzekred ⋄ github.com/Osama-Elzekred\nOBJECTIVE\nSoftware Engineer with experience in backend & frontend development, AI integrations, .NET technologies, and\nfull-stack application design. Seeking opportunities to contribute to impactful engineering teams.\nEDUCATION\nB.Sc. in Computer Engineering, Mansoura University\nOverall Grade: Excellent with Honor (GPA: 3.6)\nAsp.NET Backend Training, Information Technology Institute (ITI)\n2019 2024\nJun 2023 Oct 2023\nCompleted backend web development training.\nSKILLS\nLanguages\nConcepts\nTechnologies\nEXPERIENCE\nC#, Python, JavaScript, TypeScript\nOOP, Data Structures, Algorithms, Clean Architecture, SOA, Repository & Unit of\nWork, REST APIs, Agile, Unit Testing, Result Pattern, Linux\n.NET, Next.js, Docker, WebSockets, WinForms, Git, Azure, AWS S3, PostgreSQL,\nSQL Server, ADO.NET, LINQ, Dapper, EF, Grafana\nBackend Engineer (AI Lab Team) — WorkBuddy Platform\nSi-Vision\nOct 2024 May 2025\nCairo, Egypt\n• Designed a clean backend architecture (Core/Infrastructure/API layers) using ASP.NET Core and PostgreSQL.\n• Integrated LLM APIs (OpenAI GPT, Gemini) enabling intelligent chat and contextual document querying.\n• Built platform features: quizzes, smart reminders, policy nudges, analytics dashboards.\n• Developed integrations with Google Drive, Google Calendar, Jira, SharePoint, OneDrive, and AWS S3.\nSoftware Engineer Intern\nISFP\n• Developed Windows applications using Java.\n• Contributed to a Hotel Management System using Java, Spring, and MySQL.\nPROJECTS\nIntelliView — AI-Powered Mock Interview Platform.\nJun 2022 Sep 2022\nCairo, Egypt\nFull-stack interview simulation system with customizable mock interviews, avatar-based questions, and AI feedback.\nTech: ASP.NET Core, Next.js, SQL Server, Docker.\nAchievement: Won 2nd Place at the UCCD Startup Missiles Competition.\nComprehensive Inventory & Sales POS System.\nDeployed WinForms application for supermarket operations using C#, ADO.NET, Dapper, SQL Server.\nSocial Media Application.\nA dynamic web application offering users an engaging platform for social interaction.\nEXTRA-CURRICULAR ACTIVITIES\nActivities undertaken during my time at Mansoura University.\n• Back-End Member at CAT Reloaded, contributing to technical projects and collaborative development.\n• Volunteer at Ummar Charity Organization, supporting community and fundraising initiatives"
+}
+
+### Generate Cover Letter with Custom Template
+POST {{CoverLetter_Api_HostAddress}}/generate-cover-letter
+Content-Type: application/json
+
+{
+  "jobDescription": "Junior Developer position at a startup. We need someone eager to learn, with basic programming knowledge.",
+  "cvText": "Jane Smith - Recent Graduate\n\nEducation: BSc Computer Science (2024)\n\nProjects:\n- Built a web app using React and Node.js\n- Created a mobile app using Flutter\n\nSkills: JavaScript, Python, React, Node.js, Git",
+  "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.\n\nJob:\n{0}\n\nCandidate Info:\n{1}\n\nCover letter:"
+}
+
+###

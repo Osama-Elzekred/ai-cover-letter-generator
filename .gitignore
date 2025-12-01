@@ -1,0 +1,126 @@
+## .NET / C# ###
+bin/
+obj/
+out/
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.log
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider IDE
+.idea/
+*.sln.iml
+
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.VC.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+### Secrets & Environment ###
+*.env
+.env.*
+!.env.example
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+secrets.json
+*.pfx
+*.p12
+
+# User secrets (stored outside project, but just in case)
+secrets/
+
+### Logs ###
+*.log
+logs/
+*.trace
+
+### Test Results ###
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+lcov.info
+
+### Docker ###
+docker-compose.override.yml
+
+### Kubernetes Secrets ###
+*-secret.yaml
+*-secrets.yaml
+
+### IDE ###
+.idea/
+*.swp
+*.swo
+*~
+
+### Build Outputs ###
+publish/
+dist/
+
+### k6 Load Testing ###
+k6/results/
+*.har
+
+### Temporary Files ###
+tmp/
+temp/
+*.tmp
