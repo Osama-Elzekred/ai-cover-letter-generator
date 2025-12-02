@@ -1,4 +1,4 @@
-namespace CoverLetter.Api.Configuration;
+namespace CoverLetter.Infrastructure.LlmProviders.Groq;
 
 /// <summary>
 /// Configuration settings for Groq API.
@@ -20,9 +20,11 @@ public sealed class GroqSettings
   /// <summary>
   /// Model to use for chat completions.
   /// </summary>
-  public string Model { get; init; } = "llama-3.3-70b-versatile";  /// <summary>
-                                                                   /// Temperature for generation (0.0 - 2.0).
-                                                                   /// </summary>
+  public string Model { get; init; } = "llama-3.3-70b-versatile";
+
+  /// <summary>
+  /// Temperature for generation (0.0 - 2.0).
+  /// </summary>
   public double Temperature { get; init; } = 0.7;
 
   /// <summary>

@@ -1,0 +1,44 @@
+@CoverLetter_Api_HostAddress = http://localhost:5012
+
+### Health Check
+GET {{CoverLetter_Api_HostAddress}}/health
+Accept: application/json
+
+### Generate Cover Letter (v1 - URL versioning)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "We are looking for a Senior Software Engineer with 5+ years of experience in .NET and C#. The ideal candidate should have experience with microservices architecture, REST APIs, and cloud technologies (Azure/AWS). Strong knowledge of SQL databases and Entity Framework is required. Experience with Docker and Kubernetes is a plus.",
+  "cvText": "John Doe - Senior Software Developer\n\nExperience:\n- 6 years of software development experience\n- Proficient in C#, .NET Core, ASP.NET\n- Built microservices using Docker and Kubernetes\n- Extensive experience with SQL Server and PostgreSQL\n- Worked with Azure cloud services\n- Led a team of 4 developers\n\nSkills: C#, .NET, ASP.NET Core, Entity Framework, SQL Server, PostgreSQL, Docker, Kubernetes, Azure, REST APIs, Git\n\nEducation: BSc Computer Science"
+}
+
+### Generate Cover Letter (v1)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Junior Developer position at a startup.",
+  "cvText": "Jane Smith - Recent Graduate with BSc Computer Science"
+}
+
+### Generate Cover Letter with Custom Template
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Junior Developer position at a startup. We need someone eager to learn, with basic programming knowledge.",
+  "cvText": "Jane Smith - Recent Graduate\n\nEducation: BSc Computer Science (2024)\n\nProjects:\n- Built a web app using React and Node.js\n- Created a mobile app using Flutter\n\nSkills: JavaScript, Python, React, Node.js, Git",
+  "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.\n\nJob:\n{0}\n\nCandidate Info:\n{1}\n\nCover letter:"
+}
+
+### Test Validation Error (empty fields)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "",
+  "cvText": ""
+}
+
+###

@@ -1,0 +1,119 @@
+using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.UseCases.GenerateCoverLetter;
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+
+namespace CoverLetter.Application.Tests.UseCases.GenerateCoverLetter;
+
+/// <summary>
+/// Unit tests for GenerateCoverLetterHandler.
+/// Following TDD - these tests define the expected behavior.
+/// </summary>
+public class GenerateCoverLetterHandlerTests
+{
+  private readonly ILlmService _llmService;
+  private readonly ILogger<GenerateCoverLetterHandler> _logger;
+  private readonly GenerateCoverLetterHandler _handler;
+
+  public GenerateCoverLetterHandlerTests()
+  {
+    _llmService = Substitute.For<ILlmService>();
+    _logger = Substitute.For<ILogger<GenerateCoverLetterHandler>>();
+    _handler = new GenerateCoverLetterHandler(_llmService, _logger);
+  }
+
+  [Fact]
+  public async Task Handle_ValidRequest_ReturnsCoverLetter()
+  {
+    // Arrange
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "We need a .NET developer",
+        CvText: "I have 5 years of experience in .NET"
+    );
+
+    var expectedContent = "Dear Hiring Manager, I am excited to apply...";
+    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        .Returns(new LlmResponse(
+            Content: expectedContent,
+            Model: "llama-3.3-70b-versatile",
+            PromptTokens: 100,
+            CompletionTokens: 200
+        ));
+
+    // Act
+    var result = await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    result.IsSuccess.Should().BeTrue();
+    result.Value.Should().NotBeNull();
+    result.Value.CoverLetter.Should().Be(expectedContent);
+    result.Value.Model.Should().Be("llama-3.3-70b-versatile");
+    result.Value.PromptTokens.Should().Be(100);
+    result.Value.CompletionTokens.Should().Be(200);
+  }
+
+  [Fact]
+  public async Task Handle_LlmServiceFails_ReturnsFailure()
+  {
+    // Arrange
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "We need a .NET developer",
+        CvText: "I have 5 years of experience"
+    );
+
+    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        .Returns<LlmResponse>(_ => throw new HttpRequestException("API is down"));
+
+    // Act
+    var result = await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    result.IsFailure.Should().BeTrue();
+    result.Error.Should().Contain("API is down");
+  }
+
+  [Fact]
+  public async Task Handle_CustomPromptTemplate_UsesCustomTemplate()
+  {
+    // Arrange
+    var customTemplate = "Custom template: Job: {0}, CV: {1}";
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "Developer role",
+        CvText: "My CV",
+        CustomPromptTemplate: customTemplate
+    );
+
+    string? capturedPrompt = null;
+    _llmService.GenerateAsync(Arg.Do<string>(p => capturedPrompt = p), Arg.Any<CancellationToken>())
+        .Returns(new LlmResponse("Generated content", "model", 50, 100));
+
+    // Act
+    await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    capturedPrompt.Should().NotBeNull();
+    capturedPrompt.Should().Contain("Custom template");
+    capturedPrompt.Should().Contain("Developer role");
+    capturedPrompt.Should().Contain("My CV");
+  }
+
+  [Fact]
+  public async Task Handle_ValidRequest_CallsLlmServiceOnce()
+  {
+    // Arrange
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "Job description",
+        CvText: "CV text"
+    );
+
+    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        .Returns(new LlmResponse("Content", "model", 50, 100));
+
+    // Act
+    await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    await _llmService.Received(1).GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+  }
+}

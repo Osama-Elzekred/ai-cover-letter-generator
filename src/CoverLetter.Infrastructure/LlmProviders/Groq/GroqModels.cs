@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace CoverLetter.Api.Models;
+namespace CoverLetter.Infrastructure.LlmProviders.Groq;
 
 /// <summary>
 /// Groq API request model (OpenAI-compatible chat completions).
