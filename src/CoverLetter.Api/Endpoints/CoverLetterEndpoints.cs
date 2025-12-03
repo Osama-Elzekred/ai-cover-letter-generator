@@ -1,8 +1,8 @@
 using Asp.Versioning;
+using CoverLetter.Api.Extensions;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
-using FluentValidation;
 using MediatR;
-using Refit;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CoverLetter.Api.Endpoints;
 
@@ -25,8 +25,11 @@ public static class CoverLetterEndpoints
     group.MapPost("/generate", GenerateCoverLetter)
         .WithName("GenerateCoverLetter")
         .Produces<GenerateCoverLetterResult>(StatusCodes.Status200OK)
-        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
-        .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
+        .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest)  // FluentValidation errors
+        .ProducesProblem(StatusCodes.Status400BadRequest)                      // Business validation errors
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status500InternalServerError);
 
     return app;
   }
@@ -45,16 +48,7 @@ public static class CoverLetterEndpoints
 
     var result = await mediator.Send(command, cancellationToken);
 
-    if (result.IsFailure)
-    {
-      return Results.Problem(
-          title: "Generation Failed",
-          detail: result.Error,
-          statusCode: StatusCodes.Status500InternalServerError
-      );
-    }
-
-    return Results.Ok(result.Value);
+    return result.ToHttpResult();  // Clean one-liner!
   }
 }
 
