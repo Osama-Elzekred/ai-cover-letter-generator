@@ -41,4 +41,64 @@ Content-Type: application/json
   "cvText": ""
 }
 
+### Test Validation Error (missing required fields)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+}
+
+### Test Validation Error (only job description)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Developer position"
+}
+
+### Test Validation Error (only CV text)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "cvText": "John Doe - Developer with 5 years experience"
+}
+
+### Test Validation Error (whitespace only)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "   ",
+  "cvText": "   "
+}
+
+### Test Wrong Content-Type (should return 415)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: text/plain
+
+jobDescription=Test&cvText=Test
+
+### Test Invalid API Version (should return 404 - route doesn't exist)
+POST {{CoverLetter_Api_HostAddress}}/api/v99/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Test",
+  "cvText": "Test"
+}
+
+### Test Non-existent Endpoint (should return 404)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/unknown
+Content-Type: application/json
+
+{
+  "jobDescription": "Test",
+  "cvText": "Test"
+}
+
+### Test GET on POST-only Endpoint (should return 405)
+GET {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Accept: application/json
+
 ###
