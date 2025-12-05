@@ -6,6 +6,7 @@ namespace CoverLetter.Application.Common.Behaviors;
 
 /// <summary>
 /// MediatR pipeline behavior that logs request execution with duration.
+/// Only logs successful completions - errors are handled by GlobalExceptionHandler.
 /// </summary>
 public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -25,29 +26,16 @@ public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
     var requestName = typeof(TRequest).Name;
     var stopwatch = Stopwatch.StartNew();
 
-    try
-    {
-      var response = await next();
-      stopwatch.Stop();
+    _logger.LogDebug("Handling {RequestName}", requestName);
 
-      _logger.LogInformation(
-          "{RequestName} completed in {ElapsedMs}ms",
-          requestName,
-          stopwatch.ElapsedMilliseconds);
+    var response = await next();
 
-      return response;
-    }
-    catch (Exception ex)
-    {
-      stopwatch.Stop();
+    stopwatch.Stop();
+    _logger.LogInformation(
+        "{RequestName} completed in {ElapsedMs}ms",
+        requestName,
+        stopwatch.ElapsedMilliseconds);
 
-      _logger.LogError(
-          ex,
-          "{RequestName} failed after {ElapsedMs}ms",
-          requestName,
-          stopwatch.ElapsedMilliseconds);
-
-      throw;
-    }
+    return response;
   }
 }
