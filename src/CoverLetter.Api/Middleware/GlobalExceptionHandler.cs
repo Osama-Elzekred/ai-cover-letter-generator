@@ -21,11 +21,23 @@ public sealed class GlobalExceptionHandler(
   {
     var (statusCode, title, detail) = MapException(exception);
 
-    logger.LogError(
-        exception,
-        "Unhandled exception occurred: {ExceptionType} - {Message}",
-        exception.GetType().Name,
-        exception.Message);
+    // Validation is expected user behavior - log at Debug level (or skip entirely)
+    // Unexpected errors are logged at Error level with full stack trace
+    if (exception is ValidationException)
+    {
+      logger.LogDebug(
+          "Validation failed for {Path}: {Errors}",
+          httpContext.Request.Path,
+          string.Join(", ", ((ValidationException)exception).Errors.Select(e => e.ErrorMessage)));
+    }
+    else
+    {
+      logger.LogError(
+          exception,
+          "Unhandled exception occurred: {ExceptionType} - {Message}",
+          exception.GetType().Name,
+          exception.Message);
+    }
 
     var problemDetails = new ProblemDetails
     {

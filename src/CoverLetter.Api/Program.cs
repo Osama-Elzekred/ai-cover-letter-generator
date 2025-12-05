@@ -36,18 +36,19 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 // ========== Middleware Pipeline ==========
+// Serilog request logging FIRST - logs the final response status
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
+});
+
+// Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
-// Serilog request logging (replaces default HTTP logging)
-app.UseSerilogRequestLogging(options =>
-{
-    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
-});
 
 app.UseHttpsRedirection();
 
