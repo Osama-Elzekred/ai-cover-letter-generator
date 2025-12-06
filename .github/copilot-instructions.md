@@ -1,5 +1,14 @@
 # Copilot Instructions
 
+## Project Purpose
+This is an **educational project** - the primary goal is learning concepts and tools.
+- Always explain the "why" behind decisions
+- Show what experts do in production systems
+- List pros/cons for every approach
+- Mention alternatives worth exploring
+- Connect concepts to real-world systems (Netflix, Uber, etc.)
+- Don't take shortcuts - implement patterns even if "overkill" for learning value
+
 ## Rules
 - Be **proactive**: anticipate issues (duplication, middleware order, consistency)
 - Check existing code patterns before suggesting new code
