@@ -9,12 +9,11 @@ namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
 /// Handler for GenerateCoverLetterCommand.
 /// This is where the business logic lives.
 /// </summary>
-public sealed class GenerateCoverLetterHandler
+public sealed class GenerateCoverLetterHandler(
+    ILlmService llmService,
+    ILogger<GenerateCoverLetterHandler> logger)
     : IRequestHandler<GenerateCoverLetterCommand, Result<GenerateCoverLetterResult>>
 {
-  private readonly ILlmService _llmService;
-  private readonly ILogger<GenerateCoverLetterHandler> _logger;
-
   private const string DefaultPromptTemplate = """
         You are an expert career coach and professional cover letter writer.
         
@@ -42,14 +41,6 @@ public sealed class GenerateCoverLetterHandler
         Write the cover letter now:
         """;
 
-  public GenerateCoverLetterHandler(
-      ILlmService llmService,
-      ILogger<GenerateCoverLetterHandler> logger)
-  {
-    _llmService = llmService;
-    _logger = logger;
-  }
-
   public async Task<Result<GenerateCoverLetterResult>> Handle(
       GenerateCoverLetterCommand request,
       CancellationToken cancellationToken)
@@ -59,7 +50,11 @@ public sealed class GenerateCoverLetterHandler
       var promptTemplate = request.CustomPromptTemplate ?? DefaultPromptTemplate;
       var prompt = string.Format(promptTemplate, request.JobDescription, request.CvText);
 
-      var llmResponse = await _llmService.GenerateAsync(prompt, cancellationToken);
+      var options = new LlmGenerationOptions(
+          SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary."
+      );
+
+      var llmResponse = await llmService.GenerateAsync(prompt, options, cancellationToken);
 
       var result = new GenerateCoverLetterResult(
           CoverLetter: llmResponse.Content.Trim(),
@@ -69,7 +64,7 @@ public sealed class GenerateCoverLetterHandler
           GeneratedAt: DateTime.UtcNow
       );
 
-      _logger.LogInformation(
+      logger.LogInformation(
           "Cover letter generated using {Model} - Tokens: {PromptTokens}→{CompletionTokens}",
           llmResponse.Model,
           llmResponse.PromptTokens,
@@ -79,7 +74,7 @@ public sealed class GenerateCoverLetterHandler
     }
     catch (Exception ex)
     {
-      _logger.LogError(ex, "Failed to generate cover letter");
+      logger.LogError(ex, "Failed to generate cover letter");
       return Result.Failure<GenerateCoverLetterResult>($"Failed to generate cover letter: {ex.Message}");
     }
   }

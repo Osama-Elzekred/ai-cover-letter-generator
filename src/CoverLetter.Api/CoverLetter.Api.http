@@ -32,6 +32,35 @@ Content-Type: application/json
   "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.\n\nJob:\n{0}\n\nCandidate Info:\n{1}\n\nCover letter:"
 }
 
+### Test Idempotency - First Call (should call Groq API)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Engineer at Tech Company",
+  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "idempotencyKey": "test-key-12345"
+}
+
+### Test Idempotency - Different Key (should call Groq API again)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Engineer at Tech Company",
+  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "idempotencyKey": "test-key-67890"
+}
+
+### Test Without Idempotency Key (normal execution, no caching)
+POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Engineer at Tech Company",
+  "cvText": "John Doe - 5 years experience in .NET and C#"
+}
+
 ### Test Validation Error (empty fields)
 POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
 Content-Type: application/json

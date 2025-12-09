@@ -43,7 +43,8 @@ public static class CoverLetterEndpoints
     var command = new GenerateCoverLetterCommand(
         JobDescription: request.JobDescription,
         CvText: request.CvText,
-        CustomPromptTemplate: request.CustomPromptTemplate
+        CustomPromptTemplate: request.CustomPromptTemplate,
+        IdempotencyKey: request.IdempotencyKey
     );
 
     var result = await mediator.Send(command, cancellationToken);
@@ -52,11 +53,13 @@ public static class CoverLetterEndpoints
   }
 }
 
+
 /// <summary>
 /// Request DTO for generating a cover letter.
 /// </summary>
 public sealed record GenerateCoverLetterRequest(
     string JobDescription,
     string CvText,
-    string? CustomPromptTemplate = null
+    string? CustomPromptTemplate = null,
+    string? IdempotencyKey = null
 );
