@@ -24,8 +24,15 @@ public static class DependencyInjection
     // Register FluentValidation validators
     services.AddValidatorsFromAssembly(assembly);
 
+    // Register memory cache for idempotency
+    services.AddMemoryCache(options =>
+    {
+      options.SizeLimit = 100;  // Limit to 100 cached responses
+    });
+
     // Register pipeline behaviors (order matters!)
     services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+    services.AddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
     services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
     return services;
