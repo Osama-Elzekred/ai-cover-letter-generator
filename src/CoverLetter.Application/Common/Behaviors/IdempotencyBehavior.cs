@@ -7,6 +7,7 @@ namespace CoverLetter.Application.Common.Behaviors;
 /// <summary>
 /// MediatR pipeline behavior that handles idempotency by caching responses.
 /// Prevents duplicate processing of identical requests within a time window.
+/// Uses GetOrCreateAsync for thread-safe cache access.
 /// </summary>
 public sealed class IdempotencyBehavior<TRequest, TResponse>(
     IMemoryCache cache,
@@ -29,33 +30,27 @@ public sealed class IdempotencyBehavior<TRequest, TResponse>(
 
     var cacheKey = $"idempotency:{typeof(TRequest).Name}:{request.IdempotencyKey}";
 
-    // Try to get cached response
-    if (cache.TryGetValue<TResponse>(cacheKey, out var cachedResponse))
+    // Thread-safe: GetOrCreateAsync uses internal locking per cache key
+    var response = await cache.GetOrCreateAsync(cacheKey, async entry =>
+    {
+      entry.AbsoluteExpirationRelativeToNow = DefaultCacheDuration;
+      entry.Size = 1;
+
+      logger.LogDebug(
+          "Cache miss for idempotency key {IdempotencyKey}, executing handler",
+          request.IdempotencyKey);
+
+      return await next();
+    });
+
+    // Log if we returned cached response (response will be null only if factory returned null)
+    if (response != null)
     {
       logger.LogInformation(
-          "Returning cached response for idempotency key {IdempotencyKey} (Request: {RequestType})",
+          "Processed request with idempotency key {IdempotencyKey} (Request: {RequestType})",
           request.IdempotencyKey,
           typeof(TRequest).Name);
-
-      return cachedResponse!;
     }
-
-    // Execute the handler
-    var response = await next();
-
-    // Cache the response
-    var cacheOptions = new MemoryCacheEntryOptions
-    {
-      AbsoluteExpirationRelativeToNow = DefaultCacheDuration,
-      Size = 1  // For cache size limiting
-    };
-
-    cache.Set(cacheKey, response, cacheOptions);
-
-    logger.LogDebug(
-        "Cached response for idempotency key {IdempotencyKey} (expires in {Duration})",
-        request.IdempotencyKey,
-        DefaultCacheDuration);
 
     return response;
   }
