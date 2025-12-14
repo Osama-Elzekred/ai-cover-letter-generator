@@ -15,11 +15,16 @@ public sealed class GenerateCoverLetterValidator : AbstractValidator<GenerateCov
         .MaximumLength(50000)
         .WithMessage("Job description exceeds maximum length of 50,000 characters.");
 
+    // Either CvId OR CvText must be provided
+    RuleFor(x => x)
+        .Must(x => !string.IsNullOrWhiteSpace(x.CvId) || !string.IsNullOrWhiteSpace(x.CvText))
+        .WithMessage("Either CvId or CvText must be provided.");
+
+    // CvText validation (when provided)
     RuleFor(x => x.CvText)
-        .NotEmpty()
-        .WithMessage("CV text is required.")
         .MaximumLength(50000)
-        .WithMessage("CV text exceeds maximum length of 50,000 characters.");
+        .WithMessage("CV text exceeds maximum length of 50,000 characters.")
+        .When(x => !string.IsNullOrWhiteSpace(x.CvText));
 
     RuleFor(x => x.CustomPromptTemplate)
         .MaximumLength(10000)

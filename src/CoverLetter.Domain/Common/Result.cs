@@ -11,7 +11,9 @@ public enum ResultType
   ValidationError,
   Unauthorized,
   Forbidden,
-  Conflict
+  Conflict,
+  NotSupported,
+  InvalidInput
 }
 
 /// <summary>
@@ -62,6 +64,14 @@ public class Result<T> : Result
   }
 
   // Convenience factory methods
+  public static Result<T> Success(T value) => new(value, true, ResultType.Success);
+
+  public static Result<T> Failure(string error, ResultType type = ResultType.Error)
+      => new(default!, false, type, [error]);
+
+  public static Result<T> Failure(IEnumerable<string> errors, ResultType type = ResultType.Error)
+      => new(default!, false, type, errors);
+
   public static Result<T> NotFound(string error = "Resource not found")
       => new(default!, false, ResultType.NotFound, [error]);
 

@@ -54,6 +54,18 @@ app.UseHttpsRedirection();
 
 // ========== Endpoints ==========
 app.MapHealthEndpoints();
-app.MapCoverLetterEndpoints();
+
+var versionSet = app.NewApiVersionSet()
+    .HasApiVersion(new ApiVersion(1, 0))
+    .ReportApiVersions()
+    .Build();
+
+// Version 1.0 routes
+var v1Routes = app.MapGroup("/api/v{version:apiVersion}")
+    .WithApiVersionSet(versionSet)
+    .HasApiVersion(1.0);
+
+v1Routes.MapCoverLetterEndpoints();
+v1Routes.MapCvEndpoints();
 
 app.Run();

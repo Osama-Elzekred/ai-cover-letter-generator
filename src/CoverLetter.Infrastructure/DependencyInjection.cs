@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Infrastructure.CvParsers;
 using CoverLetter.Infrastructure.LlmProviders.Groq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +37,9 @@ public static class DependencyInjection
 
     // Register LLM service
     services.AddScoped<ILlmService, GroqLlmService>();
+
+    // Register CV parser service
+    services.AddScoped<ICvParserService, CvParserService>();
 
     return services;
   }

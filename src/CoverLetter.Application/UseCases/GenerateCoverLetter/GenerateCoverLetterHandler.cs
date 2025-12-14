@@ -1,6 +1,8 @@
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Entities;
 using MediatR;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
@@ -11,6 +13,7 @@ namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
 /// </summary>
 public sealed class GenerateCoverLetterHandler(
     ILlmService llmService,
+    IMemoryCache cache,
     ILogger<GenerateCoverLetterHandler> logger)
     : IRequestHandler<GenerateCoverLetterCommand, Result<GenerateCoverLetterResult>>
 {
@@ -31,6 +34,7 @@ public sealed class GenerateCoverLetterHandler(
         - End with a clear call to action
         - Do NOT include placeholder text like [Company Name] - if unknown, write generically
         - Do NOT make up information not present in the CV
+        - Make it look human-written and avoid AI-detection triggers
         
         JOB DESCRIPTION:
         {0}
@@ -47,8 +51,15 @@ public sealed class GenerateCoverLetterHandler(
   {
     try
     {
+      // Resolve CV text from CvId or use direct CvText
+      var cvText = await ResolveCvTextAsync(request, cancellationToken);
+      if (cvText.IsFailure)
+      {
+        return Result<GenerateCoverLetterResult>.Failure(cvText.Errors, cvText.Type);
+      }
+
       var promptTemplate = request.CustomPromptTemplate ?? DefaultPromptTemplate;
-      var prompt = string.Format(promptTemplate, request.JobDescription, request.CvText);
+      var prompt = string.Format(promptTemplate, request.JobDescription, cvText.Value);
 
       var options = new LlmGenerationOptions(
           SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary."
@@ -77,5 +88,41 @@ public sealed class GenerateCoverLetterHandler(
       logger.LogError(ex, "Failed to generate cover letter");
       return Result.Failure<GenerateCoverLetterResult>($"Failed to generate cover letter: {ex.Message}");
     }
+  }
+
+  /// <summary>
+  /// Resolves CV text from CvId (cache lookup) or uses direct CvText.
+  /// </summary>
+  private Task<Result<string>> ResolveCvTextAsync(
+      GenerateCoverLetterCommand request,
+      CancellationToken cancellationToken)
+  {
+    // If CvId provided, retrieve from cache
+    if (!string.IsNullOrWhiteSpace(request.CvId))
+    {
+      var cacheKey = $"cv:{request.CvId}";
+
+      if (!cache.TryGetValue<CvDocument>(cacheKey, out var cvDocument) || cvDocument is null)
+      {
+        logger.LogWarning("CV not found in cache: {CvId}", request.CvId);
+        return Task.FromResult(Result<string>.Failure(
+            $"CV with ID '{request.CvId}' not found. The CV may have expired (24h cache) or the ID is invalid.",
+            ResultType.NotFound));
+      }
+
+      logger.LogDebug("Retrieved CV from cache: {CvId}", request.CvId);
+      return Task.FromResult(Result<string>.Success(cvDocument.ExtractedText));
+    }
+
+    // Fallback to direct CvText (backward compatibility)
+    if (!string.IsNullOrWhiteSpace(request.CvText))
+    {
+      return Task.FromResult(Result<string>.Success(request.CvText));
+    }
+
+    // Should never reach here due to validator, but defensive check
+    return Task.FromResult(Result<string>.Failure(
+        "Either CvId or CvText must be provided.",
+        ResultType.InvalidInput));
   }
 }

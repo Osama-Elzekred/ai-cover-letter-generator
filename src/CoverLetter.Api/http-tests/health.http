@@ -1,0 +1,7 @@
+@baseUrl = {{$dotenv baseUrl}}
+
+### Health Check
+GET {{baseUrl}}/health
+Accept: application/json
+
+###

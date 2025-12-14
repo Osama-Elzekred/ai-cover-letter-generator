@@ -23,6 +23,8 @@ public static class ResultExtensions
       {
         ResultType.NotFound => Results.NotFound(CreateProblemDetails(result.Errors, 404, "Not Found")),
         ResultType.ValidationError => Results.BadRequest(CreateProblemDetails(result.Errors, 400, "Validation Failed")),
+        ResultType.InvalidInput => Results.BadRequest(CreateProblemDetails(result.Errors, 400, "Invalid Input")),
+        ResultType.NotSupported => Results.BadRequest(CreateProblemDetails(result.Errors, 400, "Not Supported")),
         ResultType.Unauthorized => Results.Unauthorized(),
         ResultType.Forbidden => Results.Problem(CreateProblemDetails(result.Errors, 403, "Forbidden")),
         ResultType.Conflict => Results.Conflict(CreateProblemDetails(result.Errors, 409, "Conflict")),

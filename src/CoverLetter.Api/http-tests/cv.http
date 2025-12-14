@@ -1,0 +1,68 @@
+@baseUrl = {{$dotenv baseUrl}}
+
+### ========================================
+### CV UPLOAD AND PARSING
+### ========================================
+
+### Upload PDF CV
+POST {{baseUrl}}/api/v1/cv/parse
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="resume.pdf"
+Content-Type: application/pdf
+
+< D:\Collage\OsamaElzekred-SoftwareEngineer.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Upload Plain Text CV
+POST {{baseUrl}}/api/v1/cv/parse
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="resume.txt"
+Content-Type: text/plain
+
+John Doe - Senior Software Engineer
+
+Experience:
+- 8 years in .NET development
+- Expert in C#, ASP.NET Core, Azure
+- Built scalable microservices
+
+Skills: C#, .NET, Docker, Kubernetes, SQL
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Upload CV with Idempotency Key
+POST {{baseUrl}}/api/v1/cv/parse
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="resume.txt"
+Content-Type: text/plain
+
+Jane Smith - Data Scientist
+5 years experience in Python, ML, TensorFlow
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="idempotencyKey"
+
+my-cv-upload-key-001
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ========================================
+### CV RETRIEVAL
+### ========================================
+
+### Retrieve Parsed CV by ID (Replace with actual ID from upload response)
+GET {{baseUrl}}/api/v1/cv/YOUR_CV_ID_HERE
+Accept: application/json
+
+### ========================================
+### CV ERROR TESTS
+### ========================================
+
+### CV Not Found (Invalid ID)
+GET {{baseUrl}}/api/v1/cv/invalid-cv-id-12345
+Accept: application/json
+
+###

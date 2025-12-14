@@ -52,7 +52,7 @@ public sealed class IdempotencyBehavior<TRequest, TResponse>(
           typeof(TRequest).Name);
     }
 
-    return response;
+    return response!;
   }
 }
 

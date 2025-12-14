@@ -31,8 +31,11 @@ public static class DependencyInjection
     });
 
     // Register pipeline behaviors (order matters!)
+    // 1. Log request details
     services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+    // 2. Check idempotency (avoid duplicate work)
     services.AddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
+    // 3. Validate request
     services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
     return services;

@@ -1,4 +1,3 @@
-using Asp.Versioning;
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using MediatR;
@@ -11,15 +10,10 @@ namespace CoverLetter.Api.Endpoints;
 /// </summary>
 public static class CoverLetterEndpoints
 {
-  public static IEndpointRouteBuilder MapCoverLetterEndpoints(this IEndpointRouteBuilder app)
+  public static IEndpointRouteBuilder MapCoverLetterEndpoints(this IEndpointRouteBuilder routes)
   {
-    var apiVersionSet = app.NewApiVersionSet()
-        .HasApiVersion(new ApiVersion(1, 0))
-        .ReportApiVersions()
-        .Build();
-
-    var group = app.MapGroup("/api/v{version:apiVersion}/cover-letters")
-        .WithApiVersionSet(apiVersionSet)
+    var group = routes
+        .MapGroup("/cover-letters")
         .WithTags("Cover Letter");
 
     group.MapPost("/generate", GenerateCoverLetter)
@@ -31,7 +25,7 @@ public static class CoverLetterEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-    return app;
+    return routes;
   }
 
   private static async Task<IResult> GenerateCoverLetter(

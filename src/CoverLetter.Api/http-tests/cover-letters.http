@@ -1,11 +1,11 @@
-@CoverLetter_Api_HostAddress = http://localhost:5012
+@baseUrl = {{$dotenv baseUrl}}
 
-### Health Check
-GET {{CoverLetter_Api_HostAddress}}/health
-Accept: application/json
+### ========================================
+### COVER LETTER GENERATION - SUCCESS CASES
+### ========================================
 
-### Generate Cover Letter (v1 - URL versioning)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Detailed CV
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -13,8 +13,8 @@ Content-Type: application/json
   "cvText": "John Doe - Senior Software Developer\n\nExperience:\n- 6 years of software development experience\n- Proficient in C#, .NET Core, ASP.NET\n- Built microservices using Docker and Kubernetes\n- Extensive experience with SQL Server and PostgreSQL\n- Worked with Azure cloud services\n- Led a team of 4 developers\n\nSkills: C#, .NET, ASP.NET Core, Entity Framework, SQL Server, PostgreSQL, Docker, Kubernetes, Azure, REST APIs, Git\n\nEducation: BSc Computer Science"
 }
 
-### Generate Cover Letter (v1)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Junior Position
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -22,8 +22,8 @@ Content-Type: application/json
   "cvText": "Jane Smith - Recent Graduate with BSc Computer Science"
 }
 
-### Generate Cover Letter with Custom Template
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Custom Template
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -32,8 +32,22 @@ Content-Type: application/json
   "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.\n\nJob:\n{0}\n\nCandidate Info:\n{1}\n\nCover letter:"
 }
 
-### Test Idempotency - First Call (should call Groq API)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Using CV ID
+POST {{baseUrl}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Senior .NET Developer with Azure experience needed for enterprise software development.",
+  "cvId": "YOUR_CV_ID_HERE",
+  "idempotencyKey": "cover-letter-gen-001"
+}
+
+### ========================================
+### IDEMPOTENCY TESTS
+### ========================================
+
+### Idempotency - First Call (should call Groq API)
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -42,8 +56,18 @@ Content-Type: application/json
   "idempotencyKey": "test-key-12345"
 }
 
-### Test Idempotency - Different Key (should call Groq API again)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Idempotency - Second Call (should return cached response)
+POST {{baseUrl}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Engineer at Tech Company",
+  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "idempotencyKey": "test-key-12345"
+}
+
+### Idempotency - Different Key (should call Groq API again)
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -52,8 +76,8 @@ Content-Type: application/json
   "idempotencyKey": "test-key-67890"
 }
 
-### Test Without Idempotency Key (normal execution, no caching)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Without Idempotency Key (normal execution, no caching)
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -61,8 +85,12 @@ Content-Type: application/json
   "cvText": "John Doe - 5 years experience in .NET and C#"
 }
 
-### Test Validation Error (empty fields)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### ========================================
+### VALIDATION ERROR TESTS
+### ========================================
+
+### Validation Error - Empty Fields
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -70,31 +98,31 @@ Content-Type: application/json
   "cvText": ""
 }
 
-### Test Validation Error (missing required fields)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Validation Error - Missing Required Fields
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
 }
 
-### Test Validation Error (only job description)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Validation Error - Only Job Description
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
   "jobDescription": "Software Developer position"
 }
 
-### Test Validation Error (only CV text)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Validation Error - Only CV Text
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
   "cvText": "John Doe - Developer with 5 years experience"
 }
 
-### Test Validation Error (whitespace only)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Validation Error - Whitespace Only
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -102,14 +130,18 @@ Content-Type: application/json
   "cvText": "   "
 }
 
-### Test Wrong Content-Type (should return 415)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### ========================================
+### HTTP ERROR TESTS
+### ========================================
+
+### Wrong Content-Type (should return 415)
+POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: text/plain
 
 jobDescription=Test&cvText=Test
 
-### Test Invalid API Version (should return 404 - route doesn't exist)
-POST {{CoverLetter_Api_HostAddress}}/api/v99/cover-letters/generate
+### Invalid API Version (should return 404)
+POST {{baseUrl}}/api/v99/cover-letters/generate
 Content-Type: application/json
 
 {
@@ -117,8 +149,8 @@ Content-Type: application/json
   "cvText": "Test"
 }
 
-### Test Non-existent Endpoint (should return 404)
-POST {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/unknown
+### Non-existent Endpoint (should return 404)
+POST {{baseUrl}}/api/v1/cover-letters/unknown
 Content-Type: application/json
 
 {
@@ -126,8 +158,8 @@ Content-Type: application/json
   "cvText": "Test"
 }
 
-### Test GET on POST-only Endpoint (should return 405)
-GET {{CoverLetter_Api_HostAddress}}/api/v1/cover-letters/generate
+### Wrong HTTP Method (should return 405)
+GET {{baseUrl}}/api/v1/cover-letters/generate
 Accept: application/json
 
 ###
