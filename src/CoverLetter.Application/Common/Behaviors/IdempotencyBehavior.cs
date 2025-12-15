@@ -47,7 +47,7 @@ public sealed class IdempotencyBehavior<TRequest, TResponse>(
     if (response != null)
     {
       logger.LogInformation(
-          "Processed request with idempotency key {IdempotencyKey} (Request: {RequestType})",
+          "Processed cached request with idempotency key {IdempotencyKey} (Request: {RequestType})",
           request.IdempotencyKey,
           typeof(TRequest).Name);
     }

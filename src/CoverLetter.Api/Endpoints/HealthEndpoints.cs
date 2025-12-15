@@ -13,13 +13,13 @@ public static class HealthEndpoints
         .HasApiVersion(new ApiVersion(1, 0))
         .Build();
 
-    // Health endpoint accessible at /health (no version prefix needed)
     app.MapGet("/health", () => Results.Ok(new
     {
       Status = "Healthy",
       Timestamp = DateTime.UtcNow
     }))
-    .WithName("HealthCheck")
+    .WithSummary("Check API health")
+    .WithDescription("Returns the health status of the API")
     .WithTags("Health")
     .Produces<object>(StatusCodes.Status200OK);
 

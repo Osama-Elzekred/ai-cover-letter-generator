@@ -7,28 +7,36 @@ namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
 /// </summary>
 public sealed class GenerateCoverLetterValidator : AbstractValidator<GenerateCoverLetterCommand>
 {
-  public GenerateCoverLetterValidator()
-  {
-    RuleFor(x => x.JobDescription)
-        .NotEmpty()
-        .WithMessage("Job description is required.")
-        .MaximumLength(50000)
-        .WithMessage("Job description exceeds maximum length of 50,000 characters.");
+    public GenerateCoverLetterValidator()
+    {
+        RuleFor(x => x.JobDescription)
+            .NotEmpty()
+            .WithMessage("Job description is required.")
+            .MaximumLength(50000)
+            .WithMessage("Job description exceeds maximum length of 50,000 characters.");
 
-    // Either CvId OR CvText must be provided
-    RuleFor(x => x)
-        .Must(x => !string.IsNullOrWhiteSpace(x.CvId) || !string.IsNullOrWhiteSpace(x.CvText))
-        .WithMessage("Either CvId or CvText must be provided.");
+        // Either CvId OR CvText must be provided (enforced at command level, but validate here too)
+        RuleFor(x => x)
+            .Must(x => !string.IsNullOrWhiteSpace(x.CvId) || !string.IsNullOrWhiteSpace(x.CvText))
+            .WithMessage("Either CvId or CvText must be provided.");
 
-    // CvText validation (when provided)
-    RuleFor(x => x.CvText)
-        .MaximumLength(50000)
-        .WithMessage("CV text exceeds maximum length of 50,000 characters.")
-        .When(x => !string.IsNullOrWhiteSpace(x.CvText));
+        // CvId validation (when provided)
+        RuleFor(x => x.CvId)
+            .NotEmpty()
+            .WithMessage("CvId cannot be empty.")
+            .When(x => x.CvId is not null);
 
-    RuleFor(x => x.CustomPromptTemplate)
-        .MaximumLength(10000)
-        .WithMessage("Custom prompt template exceeds maximum length of 10,000 characters.")
-        .When(x => x.CustomPromptTemplate is not null);
-  }
+        // CvText validation (when provided)
+        RuleFor(x => x.CvText)
+            .NotEmpty()
+            .WithMessage("CV text cannot be empty.")
+            .MaximumLength(50000)
+            .WithMessage("CV text exceeds maximum length of 50,000 characters.")
+            .When(x => x.CvText is not null);
+
+        RuleFor(x => x.CustomPromptTemplate)
+            .MaximumLength(10000)
+            .WithMessage("Custom prompt template exceeds maximum length of 10,000 characters.")
+            .When(x => x.CustomPromptTemplate is not null);
+    }
 }

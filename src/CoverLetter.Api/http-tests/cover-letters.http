@@ -4,8 +4,18 @@
 ### COVER LETTER GENERATION - SUCCESS CASES
 ### ========================================
 
-### Generate Cover Letter - Detailed CV
+### Generate Cover Letter from CV ID (Primary Method)
 POST {{baseUrl}}/api/v1/cover-letters/generate
+Content-Type: application/json
+
+{
+  "jobDescription": "We are looking for a Senior Software Engineer with 5+ years of experience in .NET and C#. The ideal candidate should have experience with microservices architecture, REST APIs, and cloud technologies (Azure/AWS). Strong knowledge of SQL databases and Entity Framework is required. Experience with Docker and Kubernetes is a plus.",
+  "cvId": "YOUR_CV_ID_HERE",
+  "idempotencyKey": "cover-letter-gen-001"
+}
+
+### Generate Cover Letter from Direct Text (Convenience Method)
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
@@ -13,8 +23,8 @@ Content-Type: application/json
   "cvText": "John Doe - Senior Software Developer\n\nExperience:\n- 6 years of software development experience\n- Proficient in C#, .NET Core, ASP.NET\n- Built microservices using Docker and Kubernetes\n- Extensive experience with SQL Server and PostgreSQL\n- Worked with Azure cloud services\n- Led a team of 4 developers\n\nSkills: C#, .NET, ASP.NET Core, Entity Framework, SQL Server, PostgreSQL, Docker, Kubernetes, Azure, REST APIs, Git\n\nEducation: BSc Computer Science"
 }
 
-### Generate Cover Letter - Junior Position
-POST {{baseUrl}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Junior Position (Direct Text)
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
@@ -22,37 +32,39 @@ Content-Type: application/json
   "cvText": "Jane Smith - Recent Graduate with BSc Computer Science"
 }
 
-### Generate Cover Letter - Custom Template
-POST {{baseUrl}}/api/v1/cover-letters/generate
+### Generate Cover Letter - Custom Template (Direct Text)
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
   "jobDescription": "Junior Developer position at a startup. We need someone eager to learn, with basic programming knowledge.",
   "cvText": "Jane Smith - Recent Graduate\n\nEducation: BSc Computer Science (2024)\n\nProjects:\n- Built a web app using React and Node.js\n- Created a mobile app using Flutter\n\nSkills: JavaScript, Python, React, Node.js, Git",
-  "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.\n\nJob:\n{0}\n\nCandidate Info:\n{1}\n\nCover letter:"
+  "customPromptTemplate": "Write a SHORT and enthusiastic cover letter (2 paragraphs max) for a junior developer position.",
+  "promptMode": "Append"
 }
 
-### Generate Cover Letter - Using CV ID
+### Generate Cover Letter - Override Mode (Replace Default Prompt)
 POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
-  "jobDescription": "Senior .NET Developer with Azure experience needed for enterprise software development.",
+  "jobDescription": "Senior .NET Developer position",
   "cvId": "YOUR_CV_ID_HERE",
-  "idempotencyKey": "cover-letter-gen-001"
+  "customPromptTemplate": "Write a professional cover letter.\n\nJob: {0}\nCV: {1}\n\nFocus on technical skills only. Be concise.",
+  "promptMode": "Override"
 }
 
 ### ========================================
 ### IDEMPOTENCY TESTS
 ### ========================================
 
-### Idempotency - First Call (should call Groq API)
+### Idempotency - First Call with CV ID (should call Groq API)
 POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
   "jobDescription": "Software Engineer at Tech Company",
-  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "cvId": "YOUR_CV_ID_HERE",
   "idempotencyKey": "test-key-12345"
 }
 
@@ -62,50 +74,44 @@ Content-Type: application/json
 
 {
   "jobDescription": "Software Engineer at Tech Company",
-  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "cvId": "YOUR_CV_ID_HERE",
   "idempotencyKey": "test-key-12345"
 }
 
-### Idempotency - Different Key (should call Groq API again)
-POST {{baseUrl}}/api/v1/cover-letters/generate
+### Idempotency with Direct Text - First Call
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
   "jobDescription": "Software Engineer at Tech Company",
   "cvText": "John Doe - 5 years experience in .NET and C#",
-  "idempotencyKey": "test-key-67890"
+  "idempotencyKey": "text-key-12345"
 }
 
-### Without Idempotency Key (normal execution, no caching)
-POST {{baseUrl}}/api/v1/cover-letters/generate
+### Idempotency with Direct Text - Second Call (cached)
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
   "jobDescription": "Software Engineer at Tech Company",
-  "cvText": "John Doe - 5 years experience in .NET and C#"
+  "cvText": "John Doe - 5 years experience in .NET and C#",
+  "idempotencyKey": "text-key-12345"
 }
 
 ### ========================================
 ### VALIDATION ERROR TESTS
 ### ========================================
 
-### Validation Error - Empty Fields
+### Validation Error - Empty Job Description (CV ID)
 POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
 {
   "jobDescription": "",
-  "cvText": ""
+  "cvId": "some-cv-id"
 }
 
-### Validation Error - Missing Required Fields
-POST {{baseUrl}}/api/v1/cover-letters/generate
-Content-Type: application/json
-
-{
-}
-
-### Validation Error - Only Job Description
+### Validation Error - Missing CV ID
 POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
@@ -113,11 +119,22 @@ Content-Type: application/json
   "jobDescription": "Software Developer position"
 }
 
-### Validation Error - Only CV Text
-POST {{baseUrl}}/api/v1/cover-letters/generate
+### Validation Error - Empty CV Text
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
+  "jobDescription": "Software Developer position",
+  "cvText": ""
+}
+
+### Validation Error - Missing Job Description
+POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
+Content-Type: application/json
+
+{
+  "cvText": "Some CV text"
+}
   "cvText": "John Doe - Developer with 5 years experience"
 }
 

@@ -20,15 +20,18 @@ public static class CvEndpoints
         .WithTags("CV Management");
 
     cvGroup.MapPost("/parse", ParseCvAsync)
-        .WithName("ParseCv")
         .WithSummary("Upload and parse a CV file")
         .WithDescription("Accepts PDF, LaTeX, or plain text CV files. Extracts text content and returns a CV ID for future use.")
-        .DisableAntiforgery(); // Required for file uploads
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<CvDocument>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .DisableAntiforgery();
 
     cvGroup.MapGet("/{cvId}", GetCvAsync)
-        .WithName("GetCv")
         .WithSummary("Retrieve a parsed CV by ID")
-        .WithDescription("Returns the parsed CV document from cache. CV must have been parsed within the last 24 hours.");
+        .WithDescription("Returns the parsed CV document from cache. CV must have been parsed within the last 24 hours.")
+        .Produces<CvDocument>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
     return routes;
   }

@@ -22,6 +22,7 @@ public sealed class GlobalExceptionHandler(
     var (statusCode, title, detail) = MapException(exception);
 
     // Validation is expected user behavior - log at Debug level (or skip entirely)
+    // BadHttpRequestException is client error - log at Debug level
     // Unexpected errors are logged at Error level with full stack trace
     if (exception is ValidationException)
     {
@@ -29,6 +30,13 @@ public sealed class GlobalExceptionHandler(
           "Validation failed for {Path}: {Errors}",
           httpContext.Request.Path,
           string.Join(", ", ((ValidationException)exception).Errors.Select(e => e.ErrorMessage)));
+    }
+    else if (exception is BadHttpRequestException)
+    {
+      logger.LogDebug(
+          "Bad HTTP request for {Path}: {Message}",
+          httpContext.Request.Path,
+          exception.Message);
     }
     else
     {
@@ -77,6 +85,11 @@ public sealed class GlobalExceptionHandler(
           HttpStatusCode.BadRequest,
           "Validation Failed",
           $"One or more validation errors occurred: {string.Join(", ", validationEx.Errors.Select(e => e.ErrorMessage))}"),
+
+      BadHttpRequestException badHttpEx => (
+          HttpStatusCode.BadRequest,
+          "Invalid Request",
+          $"The request is malformed or invalid: {badHttpEx.Message}"),
 
       ApiException apiEx => (
           HttpStatusCode.BadGateway,

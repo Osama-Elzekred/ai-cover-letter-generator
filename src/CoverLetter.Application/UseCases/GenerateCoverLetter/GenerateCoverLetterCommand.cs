@@ -15,5 +15,6 @@ public sealed record GenerateCoverLetterCommand(
     string? CvId = null,              // Cached CV reference
     string? CvText = null,            // Direct CV text (backward compatibility)
     string? CustomPromptTemplate = null,
+    PromptMode PromptMode = PromptMode.Append,  // Default: append to default prompt
     string? IdempotencyKey = null
 ) : IRequest<Result<GenerateCoverLetterResult>>, IIdempotentRequest;

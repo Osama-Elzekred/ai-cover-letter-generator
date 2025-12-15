@@ -3,6 +3,9 @@ using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Application;
 using CoverLetter.Infrastructure;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Scalar.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,7 +34,29 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // ========== OpenAPI / Swagger ==========
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new()
+        {
+            Title = "AI Cover Letter Generator",
+            Version = "v1",
+            Description = "Generate personalized cover letters & Custom CVs using AI.",
+            Contact = new()
+            {
+                Name = "API Support",
+                Url = new Uri("https://github.com/Osama-Elzekred/ai-cover-letter-generator")
+            },
+            License = new()
+            {
+                Name = "MIT",
+                Url = new Uri("https://opensource.org/licenses/MIT")
+            }
+        };
+        return Task.CompletedTask;
+    });
+});
 
 var app = builder.Build();
 
@@ -45,9 +70,16 @@ app.UseSerilogRequestLogging(options =>
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
 
+// ========== API Documentation ==========
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi();  // Exposes OpenAPI JSON at /openapi/v1.json
+
+    app.MapScalarApiReference(options => options
+        .WithTitle("AI Cover Letter Generator")
+        .WithTheme(ScalarTheme.Purple)
+        .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch)
+    );
 }
 
 app.UseHttpsRedirection();
@@ -67,5 +99,21 @@ var v1Routes = app.MapGroup("/api/v{version:apiVersion}")
 
 v1Routes.MapCoverLetterEndpoints();
 v1Routes.MapCvEndpoints();
+
+// ========== Startup Information ==========
+if (app.Environment.IsDevelopment())
+{
+    var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+    lifetime.ApplicationStarted.Register(() =>
+    {
+        var server = app.Services.GetRequiredService<IServer>();
+        var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? Array.Empty<string>();
+
+        foreach (var address in addresses)
+        {
+            Log.Information("📚 API Docs: {DocsUrl}", $"{address}/scalar/v1");
+        }
+    });
+}
 
 app.Run();

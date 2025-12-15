@@ -58,8 +58,8 @@ public sealed class GenerateCoverLetterHandler(
         return Result<GenerateCoverLetterResult>.Failure(cvText.Errors, cvText.Type);
       }
 
-      var promptTemplate = request.CustomPromptTemplate ?? DefaultPromptTemplate;
-      var prompt = string.Format(promptTemplate, request.JobDescription, cvText.Value);
+      // Build prompt based on mode (Append or Override)
+      var prompt = BuildPrompt(request, cvText.Value);
 
       var options = new LlmGenerationOptions(
           SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary."
@@ -88,6 +88,28 @@ public sealed class GenerateCoverLetterHandler(
       logger.LogError(ex, "Failed to generate cover letter");
       return Result.Failure<GenerateCoverLetterResult>($"Failed to generate cover letter: {ex.Message}");
     }
+  }
+
+  /// <summary>
+  /// Builds the final prompt based on the prompt mode (Append or Override).
+  /// </summary>
+  private string BuildPrompt(GenerateCoverLetterCommand request, string cvText)
+  {
+    if (string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+    {
+      // No custom template - use default
+      return string.Format(DefaultPromptTemplate, request.JobDescription, cvText);
+    }
+
+    if (request.PromptMode == PromptMode.Override)
+    {
+      // Override mode - use only custom template
+      return string.Format(request.CustomPromptTemplate, request.JobDescription, cvText);
+    }
+
+    // Append mode (default) - combine default + custom
+    var basePrompt = string.Format(DefaultPromptTemplate, request.JobDescription, cvText);
+    return $"{basePrompt}\n\nADDITIONAL INSTRUCTIONS:\n{request.CustomPromptTemplate}";
   }
 
   /// <summary>

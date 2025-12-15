@@ -3,7 +3,6 @@ using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
 
 namespace CoverLetter.Infrastructure.CvParsers;
 
