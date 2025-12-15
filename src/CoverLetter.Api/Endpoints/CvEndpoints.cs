@@ -11,7 +11,7 @@ namespace CoverLetter.Api.Endpoints;
 /// <summary>
 /// Endpoints for CV upload and retrieval.
 /// </summary>
-public static class CvEndpoints
+public static partial class CvEndpoints
 {
   public static IEndpointRouteBuilder MapCvEndpoints(this IEndpointRouteBuilder routes)
   {
@@ -41,14 +41,12 @@ public static class CvEndpoints
   /// Uploads and parses a CV file (PDF, LaTeX, or plain text).
   /// </summary>
   private static async Task<IResult> ParseCvAsync(
-      [FromForm] IFormFile file,
-      [FromForm] string? format, // Optional: "pdf", "latex", "plaintext"
-      [FromForm] string? idempotencyKey, // Optional: client-generated key for deduplication
+      [FromForm] ParseCvForm form,
       ISender mediator,
       CancellationToken cancellationToken)
   {
     // Determine format from parameter or file extension
-    var cvFormat = DetermineFormat(format, file.FileName);
+    var cvFormat = DetermineFormat(form.Format, form.File.FileName);
     if (cvFormat is null)
     {
       return Results.BadRequest(new
@@ -59,15 +57,15 @@ public static class CvEndpoints
 
     // Read file content
     using var memoryStream = new MemoryStream();
-    await file.CopyToAsync(memoryStream, cancellationToken);
+    await form.File.CopyToAsync(memoryStream, cancellationToken);
     var fileContent = memoryStream.ToArray();
 
     // Create command and send to handler
     var command = new ParseCvCommand(
-        FileName: file.FileName,
+        FileName: form.File.FileName,
         FileContent: fileContent,
         Format: cvFormat.Value,
-        IdempotencyKey: idempotencyKey);
+        IdempotencyKey: form.IdempotencyKey);
 
     var result = await mediator.Send(command, cancellationToken);
 
