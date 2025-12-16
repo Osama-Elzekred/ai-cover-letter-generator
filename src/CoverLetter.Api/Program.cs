@@ -40,6 +40,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();  // Required for UserContext
 builder.Services.AddScoped<IUserContext, UserContext>();
 
+// ========== CORS Configuration ==========
+builder.Services.AddCorsWithEnvironmentPolicies(builder.Configuration, builder.Environment);
+
 // ========== Rate Limiting ==========
 builder.Services.AddRateLimitingWithByok();
 
@@ -79,6 +82,9 @@ app.UseSerilogRequestLogging(options =>
 
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
+
+// CORS must be before authentication and authorization
+app.UseCors(CorsExtensions.GetCorsPolicyName());
 
 // User context extraction (X-User-Id header → HttpContext.Items)
 app.UseMiddleware<UserContextMiddleware>();
