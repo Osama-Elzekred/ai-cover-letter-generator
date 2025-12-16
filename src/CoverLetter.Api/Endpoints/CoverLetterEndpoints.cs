@@ -19,22 +19,26 @@ public static class CoverLetterEndpoints
         // Primary endpoint: Generate from uploaded CV (by ID)
         group.MapPost("/generate", GenerateCoverLetterFromCvId)
             .WithSummary("Generate a cover letter from uploaded CV")
-            .WithDescription("Generates a personalized cover letter using a previously uploaded CV (referenced by ID). Upload CV via POST /cv/parse first.")
+            .WithDescription("Generates a personalized cover letter using a previously uploaded CV (referenced by ID). Upload CV via POST /cv/parse first. Rate limited to 10 requests/minute for users without saved API keys.")
+            .RequireRateLimiting("ByokPolicy")  // Apply BYOK-aware rate limiting
             .Produces<GenerateCoverLetterResult>(StatusCodes.Status200OK)
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         // Convenience endpoint: Generate from direct text input
         group.MapPost("/generate-from-text", GenerateCoverLetterFromText)
             .WithSummary("Generate a cover letter from direct CV text")
-            .WithDescription("Generates a personalized cover letter using CV text provided directly in the request. For one-time use; prefer uploading CV and using /generate for better performance.")
+            .WithDescription("Generates a personalized cover letter using CV text provided directly in the request. For one-time use; prefer uploading CV and using /generate for better performance. Rate limited to 10 requests/minute for users without saved API keys.")
+            .RequireRateLimiting("ByokPolicy")  // Apply BYOK-aware rate limiting
             .Produces<GenerateCoverLetterResult>(StatusCodes.Status200OK)
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return routes;

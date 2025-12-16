@@ -9,6 +9,14 @@ This is an **educational project** - the primary goal is learning concepts and t
 - Connect concepts to real-world systems (Netflix, Uber, etc.)
 - Don't take shortcuts - implement patterns even if "overkill" for learning value
 
+## Project Structure
+- **Default working directory**: `src/CoverLetter.Api` - Always run terminal commands from here
+- **Run commands**: Always use full path when executing commands:
+  - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet run`
+  - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet build`
+  - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet test`
+- **Solution-wide operations**: Use `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator" && dotnet build` for building entire solution
+
 ## Rules
 - Be **proactive**: anticipate issues (duplication, middleware order, consistency)
 - Check existing code patterns before suggesting new code

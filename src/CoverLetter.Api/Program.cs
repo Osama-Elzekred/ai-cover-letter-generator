@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using CoverLetter.Api.Endpoints;
+using CoverLetter.Api.Extensions;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Api.Services;
 using CoverLetter.Application;
@@ -38,6 +39,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // ========== User Context Service ==========
 builder.Services.AddHttpContextAccessor();  // Required for UserContext
 builder.Services.AddScoped<IUserContext, UserContext>();
+
+// ========== Rate Limiting ==========
+builder.Services.AddRateLimitingWithByok();
 
 // ========== OpenAPI / Swagger ==========
 builder.Services.AddOpenApi("v1", options =>
@@ -78,6 +82,9 @@ app.UseExceptionHandler();
 
 // User context extraction (X-User-Id header → HttpContext.Items)
 app.UseMiddleware<UserContextMiddleware>();
+
+// Rate limiting (must be after UserContextMiddleware to access IUserContext)
+app.UseRateLimiter();
 
 // ========== API Documentation ==========
 if (app.Environment.IsDevelopment())

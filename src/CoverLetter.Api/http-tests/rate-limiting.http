@@ -1,0 +1,16 @@
+### Rate Limiting Tests
+### Demonstrates BYOK pattern: Users with saved API keys bypass rate limits
+
+@baseUrl = http://localhost:5012/api/v1
+@userId = test-rate-limit-user
+
+### Test : Make 11 rapid requests WITHOUT saved API key (should get rate limited on 11th)
+### Expected: First 10 succeed, 11th returns 429 Too Many Requests
+
+POST {{baseUrl}}/cover-letters/generate-from-text
+Content-Type: application/json
+
+{
+  "jobDescription": "Test job",
+  "cvText": "Test CV - Request 1"
+}
