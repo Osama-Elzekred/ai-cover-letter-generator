@@ -1,0 +1,58 @@
+### Settings Endpoints - Test File
+### Requires X-User-Id header for all operations
+
+@baseUrl = http://localhost:5012/api/v1
+@userId = test-user-123
+@groqApiKey = gsk_test1234567890abcdefghijklmnopqrstuvwxyz
+
+### 1. Check if user has saved API key (should return false initially)
+GET {{baseUrl}}/settings/groq-api-key
+X-User-Id: {{userId}}
+
+### 2. Save Groq API key
+POST {{baseUrl}}/settings/groq-api-key
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+{
+  "apiKey": "{{groqApiKey}}"
+}
+
+### 3. Check again (should now show masked key)
+GET {{baseUrl}}/settings/groq-api-key
+X-User-Id: {{userId}}
+
+### 4. Generate cover letter (will use user's saved key, no rate limits)
+POST {{baseUrl}}/cover-letters/generate-from-text
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+{
+  "jobDescription": "Software Engineer position at a startup, focusing on backend development with .NET and cloud services.",
+  "cvText": "John Doe\nSoftware Engineer\n5 years experience with C#, .NET Core, Azure\nBuilt scalable APIs and microservices"
+}
+
+### 5. Generate without user ID (will use default key with rate limits)
+POST {{baseUrl}}/cover-letters/generate-from-text
+Content-Type: application/json
+
+{
+  "jobDescription": "Frontend Developer position requiring React and TypeScript.",
+  "cvText": "Jane Smith\nFrontend Developer\n3 years experience with React, TypeScript, Next.js"
+}
+
+### 6. Delete saved API key
+DELETE {{baseUrl}}/settings/groq-api-key
+X-User-Id: {{userId}}
+
+### 7. Try to access settings without user ID (should return 401)
+GET {{baseUrl}}/settings/groq-api-key
+
+### 8. Try to save API key with invalid format
+POST {{baseUrl}}/settings/groq-api-key
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+{
+  "apiKey": "invalid-key-format"
+}

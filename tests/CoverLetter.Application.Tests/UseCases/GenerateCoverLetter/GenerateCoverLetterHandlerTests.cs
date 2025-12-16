@@ -1,6 +1,7 @@
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -13,14 +14,23 @@ namespace CoverLetter.Application.Tests.UseCases.GenerateCoverLetter;
 public class GenerateCoverLetterHandlerTests
 {
   private readonly ILlmService _llmService;
+  private readonly IMemoryCache _cache;
+  private readonly IUserContext _userContext;
   private readonly ILogger<GenerateCoverLetterHandler> _logger;
   private readonly GenerateCoverLetterHandler _handler;
 
   public GenerateCoverLetterHandlerTests()
   {
     _llmService = Substitute.For<ILlmService>();
+    _cache = Substitute.For<IMemoryCache>();
+    _userContext = Substitute.For<IUserContext>();
     _logger = Substitute.For<ILogger<GenerateCoverLetterHandler>>();
-    _handler = new GenerateCoverLetterHandler(_llmService, _logger);
+
+    // Setup default user context (no saved API key)
+    _userContext.UserId.Returns((string?)null);
+    _userContext.GetUserApiKey().Returns((string?)null);
+
+    _handler = new GenerateCoverLetterHandler(_llmService, _cache, _userContext, _logger);
   }
 
   [Fact]
@@ -33,7 +43,10 @@ public class GenerateCoverLetterHandlerTests
     );
 
     var expectedContent = "Dear Hiring Manager, I am excited to apply...";
-    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+    _llmService.GenerateAsync(
+        Arg.Any<string>(),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
         .Returns(new LlmResponse(
             Content: expectedContent,
             Model: "llama-3.3-70b-versatile",
@@ -62,7 +75,10 @@ public class GenerateCoverLetterHandlerTests
         CvText: "I have 5 years of experience"
     );
 
-    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+    _llmService.GenerateAsync(
+        Arg.Any<string>(),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
         .Returns<LlmResponse>(_ => throw new HttpRequestException("API is down"));
 
     // Act
@@ -85,7 +101,10 @@ public class GenerateCoverLetterHandlerTests
     );
 
     string? capturedPrompt = null;
-    _llmService.GenerateAsync(Arg.Do<string>(p => capturedPrompt = p), Arg.Any<CancellationToken>())
+    _llmService.GenerateAsync(
+        Arg.Do<string>(p => capturedPrompt = p),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
         .Returns(new LlmResponse("Generated content", "model", 50, 100));
 
     // Act
@@ -107,13 +126,19 @@ public class GenerateCoverLetterHandlerTests
         CvText: "CV text"
     );
 
-    _llmService.GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+    _llmService.GenerateAsync(
+        Arg.Any<string>(),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
         .Returns(new LlmResponse("Content", "model", 50, 100));
 
     // Act
     await _handler.Handle(command, CancellationToken.None);
 
     // Assert
-    await _llmService.Received(1).GenerateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    await _llmService.Received(1).GenerateAsync(
+        Arg.Any<string>(),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>());
   }
 }

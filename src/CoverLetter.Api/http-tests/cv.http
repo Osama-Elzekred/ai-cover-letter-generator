@@ -5,6 +5,7 @@
 ### ========================================
 
 ### Upload PDF CV
+### Optional: Add X-User-Id header to associate CV with your user account
 POST {{baseUrl}}/api/v1/cv/parse
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 

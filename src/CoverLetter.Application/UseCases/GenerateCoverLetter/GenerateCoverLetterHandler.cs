@@ -10,10 +10,12 @@ namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
 /// <summary>
 /// Handler for GenerateCoverLetterCommand.
 /// This is where the business logic lives.
+/// Uses IUserContext to access current user information and BYOK API keys.
 /// </summary>
 public sealed class GenerateCoverLetterHandler(
     ILlmService llmService,
     IMemoryCache cache,
+    IUserContext userContext,
     ILogger<GenerateCoverLetterHandler> logger)
     : IRequestHandler<GenerateCoverLetterCommand, Result<GenerateCoverLetterResult>>
 {
@@ -61,8 +63,12 @@ public sealed class GenerateCoverLetterHandler(
       // Build prompt based on mode (Append or Override)
       var prompt = BuildPrompt(request, cvText.Value);
 
+      // Check if user has saved their own API key (BYOK pattern)
+      var userApiKey = userContext.GetUserApiKey();
+
       var options = new LlmGenerationOptions(
-          SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary."
+          SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary.",
+          ApiKey: userApiKey  // Use user's key if available, otherwise null (defaults to app's key)
       );
 
       var llmResponse = await llmService.GenerateAsync(prompt, options, cancellationToken);

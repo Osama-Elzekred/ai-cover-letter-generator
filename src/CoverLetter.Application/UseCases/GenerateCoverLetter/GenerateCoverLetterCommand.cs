@@ -9,6 +9,7 @@ namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
 /// CQRS: This is a Command (changes/creates something).
 /// Supports idempotency via IdempotencyKey.
 /// Accepts either CvId (reference to cached CV) OR CvText (direct input).
+/// User identification handled via IUserContext (injected in handler).
 /// </summary>
 public sealed record GenerateCoverLetterCommand(
     string JobDescription,

@@ -1,7 +1,9 @@
 using Asp.Versioning;
 using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Middleware;
+using CoverLetter.Api.Services;
 using CoverLetter.Application;
+using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Infrastructure;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -32,6 +34,10 @@ builder.Services.AddApiVersioning(options =>
 // ========== Layer Registration ==========
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// ========== User Context Service ==========
+builder.Services.AddHttpContextAccessor();  // Required for UserContext
+builder.Services.AddScoped<IUserContext, UserContext>();
 
 // ========== OpenAPI / Swagger ==========
 builder.Services.AddOpenApi("v1", options =>
@@ -70,6 +76,9 @@ app.UseSerilogRequestLogging(options =>
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
 
+// User context extraction (X-User-Id header → HttpContext.Items)
+app.UseMiddleware<UserContextMiddleware>();
+
 // ========== API Documentation ==========
 if (app.Environment.IsDevelopment())
 {
@@ -99,6 +108,7 @@ var v1Routes = app.MapGroup("/api/v{version:apiVersion}")
 
 v1Routes.MapCoverLetterEndpoints();
 v1Routes.MapCvEndpoints();
+v1Routes.MapSettingsEndpoints();
 
 // ========== Startup Information ==========
 if (app.Environment.IsDevelopment())

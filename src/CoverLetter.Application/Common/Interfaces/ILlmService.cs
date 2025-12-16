@@ -6,16 +6,16 @@ namespace CoverLetter.Application.Common.Interfaces;
 /// </summary>
 public interface ILlmService
 {
-  /// <summary>
-  /// Generates text based on the provided prompt and optional parameters.
-  /// </summary>
-  /// <param name="prompt">The user prompt/instruction</param>
-  /// <param name="options">Optional generation parameters (system message, temperature, etc.)</param>
-  /// <param name="cancellationToken">Cancellation token</param>
-  Task<LlmResponse> GenerateAsync(
-      string prompt,
-      LlmGenerationOptions? options = null,
-      CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Generates text based on the provided prompt and optional parameters.
+    /// </summary>
+    /// <param name="prompt">The user prompt/instruction</param>
+    /// <param name="options">Optional generation parameters (system message, temperature, etc.)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task<LlmResponse> GenerateAsync(
+        string prompt,
+        LlmGenerationOptions? options = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -24,7 +24,8 @@ public interface ILlmService
 public sealed record LlmGenerationOptions(
     string? SystemMessage = null,
     double? Temperature = null,
-    int? MaxTokens = null
+    int? MaxTokens = null,
+    string? ApiKey = null  // Optional: User's API key for BYOK pattern
 );
 
 /// <summary>

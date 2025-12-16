@@ -58,7 +58,7 @@ public class GenerateCoverLetterValidatorTests
 
     // Assert
     result.ShouldHaveValidationErrorFor(x => x.CvText)
-        .WithErrorMessage("CV text is required.");
+        .WithErrorMessage("CV text cannot be empty.");
   }
 
   [Fact]

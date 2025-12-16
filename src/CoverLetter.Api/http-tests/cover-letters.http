@@ -5,6 +5,7 @@
 ### ========================================
 
 ### Generate Cover Letter from CV ID (Primary Method)
+### Optional: Add X-User-Id header to use your saved API key (BYOK pattern)
 POST {{baseUrl}}/api/v1/cover-letters/generate
 Content-Type: application/json
 
@@ -15,6 +16,7 @@ Content-Type: application/json
 }
 
 ### Generate Cover Letter from Direct Text (Convenience Method)
+### Optional: Add X-User-Id: your-user-id to use your saved API key
 POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
@@ -133,8 +135,6 @@ POST {{baseUrl}}/api/v1/cover-letters/generate-from-text
 Content-Type: application/json
 
 {
-  "cvText": "Some CV text"
-}
   "cvText": "John Doe - Developer with 5 years experience"
 }
 
