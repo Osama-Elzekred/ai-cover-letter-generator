@@ -79,7 +79,7 @@ $RECYCLE.BIN/
 !.env.example
 appsettings.*.json
 !appsettings.json
-!appsettings.Development.json
+# DO NOT commit appsettings.Development.json - it contains real API keys!
 secrets.json
 *.pfx
 *.p12

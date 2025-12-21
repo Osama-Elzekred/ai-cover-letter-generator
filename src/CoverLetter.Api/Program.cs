@@ -55,7 +55,11 @@ builder.Services.AddOpenApi("v1", options =>
         {
             Title = "AI Cover Letter Generator",
             Version = "v1",
-            Description = "Generate personalized cover letters & Custom CVs using AI.",
+            Description = """
+                Generate personalized cover letters & Custom CVs using AI.
+                
+                **Required Header:** All requests must include `X-User-Id` header (e.g., `X-User-Id: test-user-123`)
+                """,
             Contact = new()
             {
                 Name = "API Support",
@@ -99,7 +103,7 @@ if (app.Environment.IsDevelopment())
 
     app.MapScalarApiReference(options => options
         .WithTitle("AI Cover Letter Generator")
-        .WithTheme(ScalarTheme.Purple)
+        .WithTheme(ScalarTheme.Kepler)
         .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch)
     );
 }
