@@ -63,7 +63,7 @@ function extractJobData(): JobData | null {
  * Check if current page is a LinkedIn job posting
  */
 function isLinkedInJobPage(): boolean {
-  return window.location.href.includes('linkedin.com/jobs/');
+  return window.location.href.includes('linkedin.com/jobs');
 }
 
 /**

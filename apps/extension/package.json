@@ -4,7 +4,7 @@
   "description": "Chrome extension that extracts job descriptions and generates AI-powered cover letters",
   "type": "module",
   "scripts": {
-    "build": "bash build.sh",
+    "build": "node build.js",
     "watch": "tsc --watch",
     "type-check": "tsc --noEmit"
   },

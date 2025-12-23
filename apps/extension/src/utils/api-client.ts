@@ -142,8 +142,39 @@ export async function generateCoverLetter(
 }
 
 /**
- * Save Groq API key to backend
+ * Generate cover letter from direct text
  */
+export async function generateCoverLetterFromText(
+  request: CoverLetterFromTextRequest
+): Promise<CoverLetterResponse> {
+  const userId = await getUserId();
+  const apiKey = await getApiKey();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-User-Id': userId,
+    'Idempotency-Key': request.idempotencyKey || generateIdempotencyKey(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  
+  const response = await fetchWithRetry(`${BASE_URL}/cover-letters/generate-from-text`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+  
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new ApiClientError(response.status, error);
+  }
+  
+  return await response.json();
+}
+
+import { CoverLetterFromTextRequest } from '../types/index.js';
 export async function saveGroqApiKey(apiKey: string): Promise<void> {
   const userId = await getUserId();
   
@@ -175,7 +206,7 @@ export async function getGroqApiKey(): Promise<string | null> {
     },
   });
   
-  if (response.status === 404) {
+  if (response.status === 401) {
     return null;
   }
   
@@ -185,7 +216,7 @@ export async function getGroqApiKey(): Promise<string | null> {
   }
   
   const data = await response.json();
-  return data.apiKey;
+  return data.hasKey ? (data.maskedKey || '••••••••••••••••') : null;
 }
 
 /**

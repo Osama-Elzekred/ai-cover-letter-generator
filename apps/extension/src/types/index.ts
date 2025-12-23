@@ -12,9 +12,18 @@ export interface JobData {
 // API Request/Response Types
 export interface CoverLetterRequest {
   cvId: string;
-  jobTitle: string;
-  companyName: string;
   jobDescription: string;
+  customPromptTemplate?: string | null;
+  promptMode?: number;
+  idempotencyKey?: string | null;
+}
+
+export interface CoverLetterFromTextRequest {
+  cvText: string;
+  jobDescription: string;
+  customPromptTemplate?: string | null;
+  promptMode?: number;
+  idempotencyKey?: string | null;
 }
 
 export interface CoverLetterResponse {
@@ -36,7 +45,7 @@ export interface ApiError {
   title: string;
   status: number;
   detail?: string;
-  errors?: Record<string, string[]>;
+  errors?: Record<string, string[]> | string[];
   traceId?: string;
 }
 

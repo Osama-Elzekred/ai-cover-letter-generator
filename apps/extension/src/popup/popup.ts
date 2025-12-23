@@ -41,38 +41,71 @@ const errorMessage = document.getElementById('errorMessage') as HTMLSpanElement;
 const successToast = document.getElementById('successToast') as HTMLDivElement;
 const successMessage = document.getElementById('successMessage') as HTMLSpanElement;
 
+// Tabs
+const tabUpload = document.getElementById('tabUpload') as HTMLButtonElement;
+const tabText = document.getElementById('tabText') as HTMLButtonElement;
+const sectionUpload = document.getElementById('sectionUpload') as HTMLElement;
+const sectionText = document.getElementById('sectionText') as HTMLElement;
+
+// Text Input
+const cvTextInput = document.getElementById('cvText') as HTMLTextAreaElement;
+
+// Advanced Options
+const customPromptInput = document.getElementById('customPromptTemplate') as HTMLTextAreaElement;
+const modeAppend = document.getElementById('modeAppend') as HTMLInputElement;
+const modeReplace = document.getElementById('modeReplace') as HTMLInputElement;
+
 // ============================================
 // State
 // ============================================
 
 let currentCvId: string | null = null;
 let generatedCoverLetter: string | null = null;
+let activeTab: 'upload' | 'text' = 'upload';
 
 // ============================================
 // Initialization
 // ============================================
 
 async function init() {
-  // Load saved CV
-  const cv = await storage.getCv();
-  if (cv) {
-    currentCvId = cv.cvId;
-    showCvInfo(cv.fileName);
+  console.log('[Popup] Initializing state...');
+  
+  try {
+    // Load saved CV
+    const cv = await storage.getCv();
+    if (cv) {
+      console.log('[Popup] Restoring CV from storage:', cv);
+      currentCvId = cv.cvId;
+      showCvInfo(cv.fileName);
+    } else {
+      console.log('[Popup] No saved CV in storage');
+    }
+  } catch (error) {
+    console.error('[Popup] Error loading CV:', error);
   }
 
-  // Load last job data
-  const lastJobData = await storage.getLastJobData();
-  if (lastJobData) {
-    jobTitleInput.value = lastJobData.jobTitle;
-    companyNameInput.value = lastJobData.companyName;
-    jobDescriptionInput.value = lastJobData.jobDescription;
+  try {
+    // Load last job data
+    const lastJobData = await storage.getLastJobData();
+    if (lastJobData) {
+      console.log('[Popup] Restoring job data:', lastJobData);
+      jobTitleInput.value = lastJobData.jobTitle || '';
+      companyNameInput.value = lastJobData.companyName || '';
+      jobDescriptionInput.value = lastJobData.jobDescription || '';
+    }
+  } catch (error) {
+    console.error('[Popup] Error loading job data:', error);
   }
 
-  // Load API key status
-  const apiKey = await storage.getApiKey();
-  if (apiKey) {
-    apiKeyInput.value = '••••••••••••••••';
-    apiKeyStatus.classList.remove('hidden');
+  try {
+    // Load API key status
+    const apiKeyStatusData = await api.getGroqApiKey();
+    if (apiKeyStatusData) {
+      console.log('[Popup] API key found on backend');
+      apiKeyStatus.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.warn('[Popup] Could not fetch API key status:', error);
   }
 
   updateGenerateButtonState();
@@ -142,6 +175,28 @@ async function handleCvUpload(file: File) {
   }
 }
 
+// ============================================
+// Tabs Navigation
+// ============================================
+
+tabUpload.addEventListener('click', () => {
+  activeTab = 'upload';
+  tabUpload.classList.add('active');
+  tabText.classList.remove('active');
+  sectionUpload.classList.remove('hidden');
+  sectionText.classList.add('hidden');
+  updateGenerateButtonState();
+});
+
+tabText.addEventListener('click', () => {
+  activeTab = 'text';
+  tabText.classList.add('active');
+  tabUpload.classList.remove('active');
+  sectionText.classList.remove('hidden');
+  sectionUpload.classList.add('hidden');
+  updateGenerateButtonState();
+});
+
 function showCvInfo(fileName: string) {
   uploadPlaceholder.classList.add('hidden');
   cvInfo.classList.remove('hidden');
@@ -201,16 +256,21 @@ extractJobBtn.addEventListener('click', async () => {
     await storage.saveLastJobData(jobData);
     showSuccess('Job data extracted!');
     updateGenerateButtonState();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Extract job error:', error);
-    showError('Failed to extract job data. Make sure you are on a LinkedIn job page.');
+    
+    if (error.message?.includes('Could not establish connection')) {
+      showError('Please REFRESH the LinkedIn page and try again (required after extension updates)');
+    } else {
+      showError('Failed to extract job data. Make sure you are on a LinkedIn job page.');
+    }
   } finally {
     hideLoading();
   }
 });
 
 // Monitor input changes
-[jobTitleInput, companyNameInput, jobDescriptionInput].forEach(input => {
+[jobTitleInput, companyNameInput, jobDescriptionInput, cvTextInput].forEach(input => {
   input.addEventListener('input', updateGenerateButtonState);
 });
 
@@ -219,14 +279,12 @@ extractJobBtn.addEventListener('click', async () => {
 // ============================================
 
 generateBtn.addEventListener('click', async () => {
-  if (!currentCvId) {
-    showError('Please upload your CV first');
-    return;
-  }
-
   const jobTitle = jobTitleInput.value.trim();
   const companyName = companyNameInput.value.trim();
   const jobDescription = jobDescriptionInput.value.trim();
+  const customPrompt = customPromptInput.value.trim();
+  const promptMode = modeReplace.checked ? 1 : 0;
+  const idempotencyKey = crypto.randomUUID();
 
   if (!jobTitle || !companyName || !jobDescription) {
     showError('Please fill in all job details');
@@ -236,22 +294,42 @@ generateBtn.addEventListener('click', async () => {
   showLoading('Generating cover letter...');
 
   try {
-    const request: CoverLetterRequest = {
-      cvId: currentCvId,
-      jobTitle,
-      companyName,
-      jobDescription,
-    };
+    let response;
+    const fullJobDesc = `Job Title: ${jobTitle}\nCompany: ${companyName}\n\nJob Description:\n${jobDescription}`;
 
-    const response = await api.generateCoverLetter(request);
+    if (activeTab === 'upload') {
+      if (!currentCvId) {
+        showError('Please upload your CV first');
+        hideLoading();
+        return;
+      }
+      response = await api.generateCoverLetter({
+        cvId: currentCvId,
+        jobDescription: fullJobDesc,
+        customPromptTemplate: customPrompt || null,
+        promptMode,
+        idempotencyKey
+      });
+    } else {
+      const cvText = cvTextInput.value.trim();
+      if (!cvText) {
+        showError('Please paste your CV text first');
+        hideLoading();
+        return;
+      }
+      response = await api.generateCoverLetterFromText({
+        cvText,
+        jobDescription: fullJobDesc,
+        customPromptTemplate: customPrompt || null,
+        promptMode,
+        idempotencyKey
+      });
+    }
+
     generatedCoverLetter = response.coverLetter;
-    
     resultContent.textContent = response.coverLetter;
     resultSection.classList.remove('hidden');
-    
-    // Scroll to result
     resultSection.scrollIntoView({ behavior: 'smooth' });
-    
     showSuccess('Cover letter generated!');
   } catch (error) {
     handleApiError(error, 'Failed to generate cover letter');
@@ -336,12 +414,19 @@ deleteApiKeyBtn.addEventListener('click', async () => {
 // ============================================
 
 function updateGenerateButtonState() {
-  const hasCV = !!currentCvId;
   const hasJobTitle = jobTitleInput.value.trim().length > 0;
   const hasCompany = companyNameInput.value.trim().length > 0;
   const hasDescription = jobDescriptionInput.value.trim().length > 0;
+  
+  let hasCVSource = false;
+  if (activeTab === 'upload') {
+    hasCVSource = !!currentCvId;
+  } else {
+    hasCVSource = cvTextInput.value.trim().length > 0;
+  }
 
-  generateBtn.disabled = !(hasCV && hasJobTitle && hasCompany && hasDescription);
+  console.log('[Popup] Button State Check:', { activeTab, hasCVSource, hasJobTitle, hasCompany, hasDescription, currentCvId });
+  generateBtn.disabled = !(hasCVSource && hasJobTitle && hasCompany && hasDescription);
 }
 
 function showLoading(text: string) {
@@ -369,20 +454,31 @@ function showSuccess(message: string) {
   }, 3000);
 }
 
-function handleApiError(error: unknown, fallbackMessage: string) {
+function handleApiError(error: any, fallbackMessage: string) {
   console.error('API Error:', error);
 
   if (error instanceof api.ApiClientError) {
+    const apiError = error.apiError;
     if (error.status === 429) {
       showError('Rate limit exceeded. Please add your API key in settings.');
     } else if (error.status === 404) {
       showError('CV not found. Please upload your CV again.');
-    } else if (error.apiError.errors) {
-      // Validation errors
-      const firstError = Object.values(error.apiError.errors)[0][0];
-      showError(firstError);
+    } else if (apiError && apiError.errors) {
+      // Validation errors can be string[] or Record<string, string[]>
+      if (Array.isArray(apiError.errors)) {
+        showError(apiError.errors[0] || fallbackMessage);
+      } else {
+        const errorValues = Object.values(apiError.errors);
+        if (errorValues.length > 0 && Array.isArray(errorValues[0])) {
+          showError(errorValues[0][0]);
+        } else {
+          showError(fallbackMessage);
+        }
+      }
+    } else if (apiError) {
+      showError(apiError.detail || apiError.title || fallbackMessage);
     } else {
-      showError(error.apiError.detail || error.apiError.title);
+      showError(fallbackMessage);
     }
   } else {
     showError(fallbackMessage);

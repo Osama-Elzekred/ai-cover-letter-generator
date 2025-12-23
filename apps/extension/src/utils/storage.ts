@@ -2,7 +2,7 @@
 // Chrome Storage Utility Functions
 // ============================================
 
-import type { StorageData } from '../types';
+import type { StorageData } from '../types/index.js';
 
 /**
  * Get or generate a unique user ID
@@ -23,8 +23,9 @@ export async function getUserId(): Promise<string> {
 /**
  * Save CV data to storage
  */
-export async function saveCv(cvId: string, fileName: string): Promise<void> {
-  await chrome.storage.local.set({ cvId, cvFileName: fileName });
+export async function saveCv(id: string, fileName: string): Promise<void> {
+  console.log('[Storage] Saving CV:', { id, fileName });
+  await chrome.storage.local.set({ cvId: id, cvFileName: fileName });
 }
 
 /**
@@ -32,6 +33,7 @@ export async function saveCv(cvId: string, fileName: string): Promise<void> {
  */
 export async function getCv(): Promise<{ cvId: string; fileName: string } | null> {
   const data = await chrome.storage.local.get(['cvId', 'cvFileName']);
+  console.log('[Storage] Getting CV from storage:', data);
   
   if (data.cvId && data.cvFileName) {
     return { cvId: data.cvId, fileName: data.cvFileName };

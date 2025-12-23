@@ -14,17 +14,34 @@
       <p class="subtitle">Generate professional cover letters instantly</p>
     </header>
 
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" id="tabUpload">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        Upload CV
+      </button>
+      <button class="tab-btn" id="tabText">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <line x1="10" y1="9" x2="8" y2="9"></line>
+        </svg>
+        Direct Text
+      </button>
+    </nav>
+
     <!-- CV Upload Section -->
-    <section class="section">
-      <h2 class="section-title">📄 Upload Your CV</h2>
+    <section class="section" id="sectionUpload">
+      <h2 class="section-title">📄 Your CV</h2>
       <div class="cv-upload-area" id="cvUploadArea">
         <input type="file" id="cvFileInput" accept=".pdf,.docx" hidden>
         <div class="upload-placeholder" id="uploadPlaceholder">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
           <p>Click or drag PDF/DOCX file here</p>
           <span class="file-size-hint">Max 5MB</span>
         </div>
@@ -43,6 +60,14 @@
             </svg>
           </button>
         </div>
+      </div>
+    </section>
+
+    <!-- CV Text Section -->
+    <section class="section hidden" id="sectionText">
+      <div class="form-group">
+        <label for="cvText">Paste CV Text</label>
+        <textarea id="cvText" rows="6" placeholder="Paste your CV content here..."></textarea>
       </div>
     </section>
 
@@ -72,6 +97,30 @@
         </div>
       </div>
     </section>
+
+    <!-- Advanced Options -->
+    <details class="section settings-section">
+      <summary class="settings-header">🛠️ Advanced Options</summary>
+      <div class="settings-content">
+        <div class="form-group">
+          <label for="customPromptTemplate">Custom Prompt Template (Optional)</label>
+          <textarea id="customPromptTemplate" rows="4" placeholder="e.g. Write in a very professional tone..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Prompt Mode</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="promptMode" value="0" id="modeAppend" checked>
+              <label for="modeAppend" class="radio-label">Append</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="promptMode" value="1" id="modeReplace">
+              <label for="modeReplace" class="radio-label">Replace</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
 
     <!-- Generate Button -->
     <button class="btn btn-primary" id="generateBtn" disabled>
