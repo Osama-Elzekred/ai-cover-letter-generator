@@ -21,10 +21,5 @@ public static partial class CvEndpoints
     /// </summary>
     public string? Format { get; init; }
 
-    /// <summary>
-    /// Optional client-generated key for idempotent operations.
-    /// If provided, duplicate requests with the same key will return cached results.
-    /// </summary>
-    public string? IdempotencyKey { get; init; }
   }
 }

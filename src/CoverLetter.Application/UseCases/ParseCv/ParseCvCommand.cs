@@ -15,4 +15,8 @@ public sealed record ParseCvCommand(
     byte[] FileContent,
     CvFormat Format,
     string? IdempotencyKey = null
-) : IRequest<Result<ParseCvResult>>, IIdempotentRequest;
+) : IRequest<Result<ParseCvResult>>, IIdempotentRequest
+{
+    // IIdempotentRequest implementation
+    string? IIdempotentRequest.IdempotencyKey => IdempotencyKey;
+}

@@ -96,16 +96,21 @@ app.UseMiddleware<UserContextMiddleware>();
 // Rate limiting (must be after UserContextMiddleware to access IUserContext)
 app.UseRateLimiter();
 
-// ========== API Documentation ==========
+// ========== API Documentation & Static Files ========== 
+app.UseStaticFiles(); // Enable serving files from wwwroot
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();  // Exposes OpenAPI JSON at /openapi/v1.json
 
-    app.MapScalarApiReference(options => options
-        .WithTitle("AI Cover Letter Generator")
-        .WithTheme(ScalarTheme.Kepler)
-        .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch)
-    );
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle("AI Cover Letter Generator")
+            .WithTheme(ScalarTheme.Kepler)
+            .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch)
+            .WithJavaScriptConfiguration("/scalar/config.js"); // Load custom JS config
+    });
 }
 
 app.UseHttpsRedirection();

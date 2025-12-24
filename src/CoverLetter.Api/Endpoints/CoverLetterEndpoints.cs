@@ -46,16 +46,21 @@ public static class CoverLetterEndpoints
 
     private static async Task<IResult> GenerateCoverLetterFromCvId(
         GenerateCoverLetterFromCvIdRequest request,
+        HttpContext httpContext,
         ISender mediator,
         CancellationToken cancellationToken)
     {
+
+        // Extract idempotency key using extension method
+        var idempotencyKey = httpContext.GetIdempotencyKey();
+
         var command = new GenerateCoverLetterCommand(
             JobDescription: request.JobDescription,
             CvId: request.CvId,
             CvText: null,
             CustomPromptTemplate: request.CustomPromptTemplate,
             PromptMode: request.PromptMode,
-            IdempotencyKey: request.IdempotencyKey
+            IdempotencyKey: idempotencyKey
         );
 
         var result = await mediator.Send(command, cancellationToken);
@@ -65,16 +70,21 @@ public static class CoverLetterEndpoints
 
     private static async Task<IResult> GenerateCoverLetterFromText(
         GenerateCoverLetterFromTextRequest request,
+        HttpContext httpContext,
         ISender mediator,
         CancellationToken cancellationToken)
     {
+
+        // Extract idempotency key using extension method
+        var idempotencyKey = httpContext.GetIdempotencyKey();
+
         var command = new GenerateCoverLetterCommand(
             JobDescription: request.JobDescription,
             CvId: null,
             CvText: request.CvText,
             CustomPromptTemplate: request.CustomPromptTemplate,
             PromptMode: request.PromptMode,
-            IdempotencyKey: request.IdempotencyKey
+            IdempotencyKey: idempotencyKey
         );
 
         var result = await mediator.Send(command, cancellationToken);
@@ -91,8 +101,7 @@ public sealed record GenerateCoverLetterFromCvIdRequest(
     string JobDescription,
     string CvId,
     string? CustomPromptTemplate = null,
-    PromptMode PromptMode = PromptMode.Append,
-    string? IdempotencyKey = null
+    PromptMode PromptMode = PromptMode.Append
 );
 
 /// <summary>
@@ -102,6 +111,5 @@ public sealed record GenerateCoverLetterFromTextRequest(
     string JobDescription,
     string CvText,
     string? CustomPromptTemplate = null,
-    PromptMode PromptMode = PromptMode.Append,
-    string? IdempotencyKey = null
+    PromptMode PromptMode = PromptMode.Append
 );

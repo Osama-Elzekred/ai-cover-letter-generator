@@ -5,6 +5,17 @@ namespace CoverLetter.Api.Extensions;
 /// </summary>
 public static class HttpContextExtensions
 {
+  /// <summary>
+  /// Gets the idempotency key from the request headers (if present).
+  /// </summary>
+  /// <param name="context">The HTTP context</param>
+  /// <returns>Idempotency key if present, otherwise null</returns>
+  public static string? GetIdempotencyKey(this HttpContext context)
+  {
+    return context.Request.Headers["X-Idempotency-Key"].FirstOrDefault();
+  }
+
+
   private const string UserIdContextKey = "UserId";
 
   /// <summary>

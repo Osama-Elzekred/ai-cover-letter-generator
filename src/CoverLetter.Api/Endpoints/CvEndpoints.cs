@@ -42,6 +42,7 @@ public static partial class CvEndpoints
   /// </summary>
   private static async Task<IResult> ParseCvAsync(
       [FromForm] ParseCvForm form,
+      HttpContext httpContext,
       ISender mediator,
       CancellationToken cancellationToken)
   {
@@ -60,12 +61,16 @@ public static partial class CvEndpoints
     await form.File.CopyToAsync(memoryStream, cancellationToken);
     var fileContent = memoryStream.ToArray();
 
+
+    // Extract idempotency key using extension method
+    var idempotencyKey = httpContext.GetIdempotencyKey();
+
     // Create command and send to handler
     var command = new ParseCvCommand(
         FileName: form.File.FileName,
         FileContent: fileContent,
         Format: cvFormat.Value,
-        IdempotencyKey: form.IdempotencyKey);
+        IdempotencyKey: idempotencyKey);
 
     var result = await mediator.Send(command, cancellationToken);
 
