@@ -87,7 +87,7 @@ export async function parseCv(file: File): Promise<CvParseResponse> {
   
   const headers: HeadersInit = {
     'X-User-Id': userId,
-    'Idempotency-Key': generateIdempotencyKey(),
+    'X-Idempotency-Key': generateIdempotencyKey(),
   };
   
   if (apiKey) {
@@ -117,10 +117,11 @@ export async function generateCoverLetter(
   const userId = await getUserId();
   const apiKey = await getApiKey();
   
+  const { idempotencyKey, ...restOfRequest } = request;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'X-User-Id': userId,
-    'Idempotency-Key': generateIdempotencyKey(),
+    'X-Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
   };
   
   if (apiKey) {
@@ -130,7 +131,7 @@ export async function generateCoverLetter(
   const response = await fetchWithRetry(`${BASE_URL}/cover-letters/generate`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(request),
+    body: JSON.stringify(restOfRequest),
   });
   
   if (!response.ok) {
@@ -150,10 +151,11 @@ export async function generateCoverLetterFromText(
   const userId = await getUserId();
   const apiKey = await getApiKey();
   
+  const { idempotencyKey, ...restOfRequest } = request;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'X-User-Id': userId,
-    'Idempotency-Key': request.idempotencyKey || generateIdempotencyKey(),
+    'X-Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
   };
   
   if (apiKey) {
@@ -163,7 +165,7 @@ export async function generateCoverLetterFromText(
   const response = await fetchWithRetry(`${BASE_URL}/cover-letters/generate-from-text`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(request),
+    body: JSON.stringify(restOfRequest),
   });
   
   if (!response.ok) {
