@@ -1,5 +1,6 @@
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.UseCases.ParseCv;
+using CoverLetter.Application.UseCases.CustomizeCv;
 using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Entities;
 using MediatR;
@@ -14,6 +15,7 @@ namespace CoverLetter.Api.Endpoints;
 public static partial class CvEndpoints
 {
   public static IEndpointRouteBuilder MapCvEndpoints(this IEndpointRouteBuilder routes)
+
   {
     var cvGroup = routes
         .MapGroup("/cv")
@@ -27,13 +29,44 @@ public static partial class CvEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .DisableAntiforgery();
 
+    cvGroup.MapPost("/customize", CustomizeCvAsync)
+        .WithSummary("Customize a CV based on job description")
+        .WithDescription("Uses AI to map CV information into a professional LaTeX template tailored to the provided job description. Returns a PDF file.")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .DisableAntiforgery();
+
+    cvGroup.MapPost("/customize/debug", CustomizeCvDebugAsync)
+        .WithSummary("Get raw LaTeX customization result")
+        .WithDescription("Returns the LaTeX source instead of compiling to PDF. Useful for debugging prompt output.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .DisableAntiforgery();
+
     cvGroup.MapGet("/{cvId}", GetCvAsync)
         .WithSummary("Retrieve a parsed CV by ID")
         .WithDescription("Returns the parsed CV document from cache. CV must have been parsed within the last 24 hours.")
         .Produces<CvDocument>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+    cvGroup.MapMethods("/{cvId}", ["HEAD"], CvExistsAsync)
+    .WithSummary("Check if a parsed CV exists by ID (HEAD)")
+    .WithDescription("Returns 200 if the CV exists, 404 if not. No body is returned.")
+    .Produces(StatusCodes.Status200OK)
+    .Produces(StatusCodes.Status404NotFound);
+
     return routes;
+  }
+  private static IResult CvExistsAsync(string cvId, IMemoryCache cache)
+  {
+    var cacheKey = $"cv:{cvId}";
+    if (cache.TryGetValue<CvDocument>(cacheKey, out var cvDocument) && cvDocument is not null)
+    {
+      return Results.Ok(); // 200, no body
+    }
+    return Results.NotFound(); // 404, no body
   }
 
   /// <summary>
@@ -126,4 +159,60 @@ public static partial class CvEndpoints
       _ => null
     };
   }
+
+  /// <summary>
+  /// POST /api/v1/cv/customize
+  /// Generates a customized CV in PDF format.
+  /// </summary>
+  private static async Task<IResult> CustomizeCvAsync(
+      [FromBody] CustomizeCvRequest request,
+      HttpContext httpContext,
+      ISender mediator,
+      CancellationToken cancellationToken)
+  {
+      var idempotencyKey = httpContext.GetIdempotencyKey();
+      var command = new CustomizeCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
+
+      var result = await mediator.Send(command, cancellationToken);
+
+      if (result.IsFailure)
+      {
+          return result.ToHttpResult();
+      }
+
+      return Results.File(
+          result.Value.PdfContent!, 
+          "application/pdf", 
+          result.Value.FileName);
+  }
+
+  /// <summary>
+  /// POST /api/v1/cv/customize/debug
+  /// Returns the raw LaTeX source instead of compiling to PDF.
+  /// </summary>
+  private static async Task<IResult> CustomizeCvDebugAsync(
+      [FromBody] CustomizeCvRequest request,
+      HttpContext httpContext,
+      ISender mediator,
+      CancellationToken cancellationToken)
+  {
+      var idempotencyKey = httpContext.GetIdempotencyKey();
+      var command = new CustomizeCvCommand(
+          request.CvId, 
+          request.JobDescription, 
+          ReturnLatexOnly: true, 
+          IdempotencyKey: idempotencyKey);
+
+      var result = await mediator.Send(command, cancellationToken);
+
+      if (result.IsFailure)
+      {
+          return result.ToHttpResult();
+      }
+
+      // Return raw plain text for easier copy-pasting into Overleaf/Editors
+      return Results.Content(result.Value.LatexSource!, "text/plain");
+  }
 }
+
+public sealed record CustomizeCvRequest(string CvId, string JobDescription);

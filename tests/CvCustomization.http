@@ -1,0 +1,44 @@
+@baseUrl = http://localhost:5012/api/v1
+@cvId = 10000
+@userId = test-user-123
+
+### 1. Upload and Parse CV
+# @name parseCv
+POST {{baseUrl}}/cv/parse
+X-User-Id: {{userId}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="OsamaElzekred-SoftwareEngineer.pdf"
+Content-Type: application/pdf
+
+< D:\Collage\OsamaElzekred-SoftwareEngineer.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="format"
+
+pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 2. Test CV Customization (Debug - Returns LaTeX)
+# @name customizeCvDebug
+@parsedCvId = {{parseCv.response.body.cvId}}
+
+POST {{baseUrl}}/cv/customize/debug
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+{
+  "cvId": "{{parsedCvId}}",
+  "jobDescription": "About the job\r\nCompany Description\r\n\r\nE-stebdal is a MENA-focused returns management platform designed to streamline the refunds and exchanges process for online retailers. By automating workflows, providing dynamic product recommendations, and offering actionable insights, E-stebdal helps businesses retain revenue and improve operational efficiency. The platform is equipped with native apps for Shopify and integrations with last-mile providers across Egypt.\r\n\r\n\r\nRole Description\r\n\r\n\r\n\r\nThis is a remote Software Engineer Intern role for someone who enjoys building end-to-end web applications.\r\n\r\n\r\nYou\u2019ll work alongside the engineering team on production features across the stack \u2014 from backend services and APIs to frontend user flows. You\u2019ll help design and implement business logic, connect it to data stores, and build interfaces that merchants use. This is a hands-on role where you\u2019ll ship code, iterate quickly, and learn how systems are built and maintained.\r\n\r\n\r\nQualifications\r\n\r\n \u2022 Strong foundation in computer science fundamentals\r\n \u2022 Experience building web applications (through coursework, internships, or personal projects)\r\n \u2022 Comfortable working across the stack \u2014 frontend, backend, and APIs\r\n \u2022 Familiarity with modern web development concepts (HTTP, REST, authentication, databases)\r\n \u2022 Ability to reason about code quality, edge cases, and system behavior\r\n \u2022 Curious, proactive, and excited about learning by building\r\n\r\n\r\nNice to have\r\n\r\n\r\n\r\n \u2022 Experience with JavaScript\/TypeScript or modern web frameworks\r\n \u2022 Exposure to cloud environments, deployment, or third-party integrations"
+}
+
+### 3. Test CV Customization (Full - Returns PDF)
+POST {{baseUrl}}/cv/customize
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+
+{
+  "cvId": "{{parsedCvId}}",
+  "jobDescription": "About the job\r\nCompany Description\r\n\r\nE-stebdal is a MENA-focused returns management platform designed to streamline the refunds and exchanges process for online retailers. By automating workflows, providing dynamic product recommendations, and offering actionable insights, E-stebdal helps businesses retain revenue and improve operational efficiency. The platform is equipped with native apps for Shopify and integrations with last-mile providers across Egypt.\r\n\r\n\r\nRole Description\r\n\r\n\r\n\r\nThis is a remote Software Engineer Intern role for someone who enjoys building end-to-end web applications.\r\n\r\n\r\nYou\u2019ll work alongside the engineering team on production features across the stack \u2014 from backend services and APIs to frontend user flows. You\u2019ll help design and implement business logic, connect it to data stores, and build interfaces that merchants use. This is a hands-on role where you\u2019ll ship code, iterate quickly, and learn how systems are built and maintained.\r\n\r\n\r\nQualifications\r\n\r\n \u2022 Strong foundation in computer science fundamentals\r\n \u2022 Experience building web applications (through coursework, internships, or personal projects)\r\n \u2022 Comfortable working across the stack \u2014 frontend, backend, and APIs\r\n \u2022 Familiarity with modern web development concepts (HTTP, REST, authentication, databases)\r\n \u2022 Ability to reason about code quality, edge cases, and system behavior\r\n \u2022 Curious, proactive, and excited about learning by building\r\n\r\n\r\nNice to have\r\n\r\n\r\n\r\n \u2022 Experience with JavaScript\/TypeScript or modern web frameworks\r\n \u2022 Exposure to cloud environments, deployment, or third-party integrations"
+}
