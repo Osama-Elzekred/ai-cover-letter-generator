@@ -16,6 +16,7 @@ const uploadPlaceholder = document.getElementById('uploadPlaceholder') as HTMLDi
 const cvInfo = document.getElementById('cvInfo') as HTMLDivElement;
 const cvFileName = document.getElementById('cvFileName') as HTMLSpanElement;
 const deleteCvBtn = document.getElementById('deleteCvBtn') as HTMLButtonElement;
+const customizeCvBtn = document.getElementById('customizeCvBtn') as HTMLButtonElement;
 
 const extractJobBtn = document.getElementById('extractJobBtn') as HTMLButtonElement;
 const jobTitleInput = document.getElementById('jobTitle') as HTMLInputElement;
@@ -215,6 +216,49 @@ deleteCvBtn.addEventListener('click', async (e) => {
   hideCvInfo();
   updateGenerateButtonState();
   showSuccess('CV removed');
+});
+
+// ============================================
+// CV Customization
+// ============================================
+
+customizeCvBtn.addEventListener('click', async (e) => {
+  e.stopPropagation(); // Prevent triggering CV upload file picker
+  
+  if (!currentCvId) {
+    showError('Please upload your CV first');
+    return;
+  }
+
+  const jobTitle = jobTitleInput.value.trim();
+  const companyName = companyNameInput.value.trim();
+  const jobDescription = jobDescriptionInput.value.trim();
+
+  if (!jobTitle || !companyName || !jobDescription) {
+    showError('Please fill in job details to tailor your CV');
+    return;
+  }
+
+  showLoading('Generating customized CV PDF...');
+
+  try {
+    const fullJobDesc = `Job Title: ${jobTitle}\nCompany: ${companyName}\n\nJob Description:\n${jobDescription}`;
+    const pdfBlob = await api.customizeCv(currentCvId, fullJobDesc);
+    
+    // Download the PDF
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `customized_cv_${companyName.replace(/\s+/g, '_').toLowerCase()}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showSuccess('✨ Your tailored CV is ready and downloaded!');
+  } catch (error) {
+    handleApiError(error, 'Failed to customize CV');
+  } finally {
+    hideLoading();
+  }
 });
 
 // ============================================
@@ -427,6 +471,9 @@ function updateGenerateButtonState() {
 
   console.log('[Popup] Button State Check:', { activeTab, hasCVSource, hasJobTitle, hasCompany, hasDescription, currentCvId });
   generateBtn.disabled = !(hasCVSource && hasJobTitle && hasCompany && hasDescription);
+  
+  // Magic Button specifically needs a CV and Job details
+  customizeCvBtn.disabled = !(currentCvId && hasJobTitle && hasCompany && hasDescription);
 }
 
 function showLoading(text: string) {

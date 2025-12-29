@@ -143,6 +143,40 @@ export async function generateCoverLetter(
 }
 
 /**
+ * Customize CV based on job description and return PDF blob
+ */
+export async function customizeCv(
+  cvId: string,
+  jobDescription: string
+): Promise<Blob> {
+  const userId = await getUserId();
+  const apiKey = await getApiKey();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-User-Id': userId,
+    'X-Idempotency-Key': generateIdempotencyKey(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  
+  const response = await fetchWithRetry(`${BASE_URL}/cv/customize`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ cvId, jobDescription }),
+  });
+  
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new ApiClientError(response.status, error);
+  }
+  
+  return await response.blob();
+}
+
+/**
  * Generate cover letter from direct text
  */
 export async function generateCoverLetterFromText(

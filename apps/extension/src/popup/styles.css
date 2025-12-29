@@ -341,6 +341,45 @@ body {
   border-color: var(--primary);
 }
 
+.btn-premium {
+  background: linear-gradient(135deg, hsl(280, 100%, 70%), hsl(320, 100%, 70%), hsl(340, 100%, 70%));
+  background-size: 200% 200%;
+  color: white;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 0 20px hsla(320, 100%, 65%, 0.3);
+  animation: gradient-shift 3s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-premium:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 30px hsla(320, 100%, 65%, 0.5);
+}
+
+.btn-premium::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.btn-premium:hover::after {
+  opacity: 1;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .btn-sm {
   padding: var(--spacing-xs) var(--spacing-md);
   font-size: 0.875rem;
