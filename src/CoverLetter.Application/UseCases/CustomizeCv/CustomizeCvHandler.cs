@@ -1,4 +1,5 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Entities;
 using MediatR;
@@ -57,27 +58,25 @@ public sealed class CustomizeCvHandler(
 Overall Grade/GPA: X.XX
 
 \section{Skills}
-\begin{description}[style=multiline, leftmargin=3cm, font=\bfseries]
-    \item[Languages] Skill1, Skill2, Skill3
-    \item[Technologies] Skill4, Skill5, Skill6
-    \item[Concepts] Skill7, Skill8, Skill9
-\end{description}
+\textbf{Languages:} C#, Python, JavaScript, TypeScript \\
+\textbf{Technologies:} .NET, Docker, Kubernetes, Azure, AWS \\
+\textbf{Tools \& Concepts:} Git, CI/CD, Agile, Microservices, REST APIs
 
 \section{Experience}
 \textbf{Job Title} \hfill {Dates} \\
 \textit{Company Name} \hfill {Location}
-\begin{itemize}[noitemsep, topsep=0pt]
+\begin{itemize}[noitemsep, topsep=0pt, leftmargin=0.15in]
     \item Achievement or responsibility 1
     \item Achievement or responsibility 2
 \end{itemize}
 
 \section{Projects}
-\begin{itemize}[noitemsep, topsep=0pt]
+\begin{itemize}[noitemsep, topsep=0pt, leftmargin=0.15in]
     \item \textbf{Project Name} --- Description and tech stack.
 \end{itemize}
 
 \section{Extra-Curricular Activities}
-\begin{itemize}[noitemsep, topsep=0pt]
+\begin{itemize}[noitemsep, topsep=0pt, leftmargin=0.15in]
     \item Activity or organization
     \item Another activity
 \end{itemize}
@@ -102,8 +101,8 @@ Overall Grade/GPA: X.XX
                     ResultType.NotFound);
             }
 
-            // 2. Generate customized LaTeX using LLM
-            var prompt = $@"
+            // 2. Build the base prompt
+            string basePrompt = $@"
 Generate a tailored CV in LaTeX that compiles on Overleaf using pdfLaTeX.
 Output ONLY raw LaTeX (no JSON, no code fences, no quotes).
 Do NOT escape backslashes or newlines (no \\documentclass, no \n).
@@ -119,6 +118,22 @@ Output must start with \documentclass and end with \end{{document}}.
 3. **OBJECTIVE/SUMMARY REWRITE**: Completely rewrite the 'Objective' section to pitch the candidate specifically for the role mentioned in the Job Description.
 4. **PRIORITIZATION**: Move the candidate's most relevant projects or experiences to the top of their respective sections.
 5. **MATCHING TERMINOLOGY**: If the job asks for 'Native Apps' and the candidate has 'Mobile development', change the CV text to use the job's terminology where accurate.
+6. **SKILLS CATEGORIZATION**: Group skills logically into 3-5 professional categories. Standard headers include `Languages`, `Technologies`, `Cloud & DevOps`, `Databases`, or `Tools & Concepts`. Keep category names concise (1-3 words).
+";
+
+            // Add selected keywords if any
+            if (request.SelectedKeywords != null && request.SelectedKeywords.Any())
+            {
+                var keywordsList = string.Join(", ", request.SelectedKeywords);
+                basePrompt += $"\n7. **CONFIRMED SKILLS**: The user has specifically confirmed they possess the following skills: {keywordsList}. You MUST ensure these are clearly integrated into the CV.\n";
+            }
+
+            string finalPrompt;
+            if (request.PromptMode == PromptMode.Override && !string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+            {
+                finalPrompt = $@"{basePrompt}
+### USER CUSTOM INSTRUCTIONS (OVERRIDE):
+{request.CustomPromptTemplate}
 
 JOB DESCRIPTION:
 {request.JobDescription}
@@ -131,6 +146,26 @@ LATEX STRUCTURE TEMPLATE:
 
 Write the customized raw LaTeX source now:
 ";
+            }
+            else
+            {
+                var customInstructions = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate) 
+                    ? $"\n### ADDITIONAL USER INSTRUCTIONS:\n{request.CustomPromptTemplate}\n" 
+                    : "";
+
+                finalPrompt = $@"{basePrompt}{customInstructions}
+JOB DESCRIPTION:
+{request.JobDescription}
+
+CANDIDATE INFORMATION:
+{cvDocument.ExtractedText}
+
+LATEX STRUCTURE TEMPLATE:
+{DefaultLatexTemplate}
+
+Write the customized raw LaTeX source now:
+";
+            }
 
             var userApiKey = userContext.GetUserApiKey();
             var llmOptions = new LlmGenerationOptions(
@@ -139,7 +174,7 @@ Write the customized raw LaTeX source now:
             );
 
             logger.LogInformation("Generating customized LaTeX for CV {CvId}", request.CvId);
-            var llmResponse = await llmService.GenerateAsync(prompt, llmOptions, cancellationToken);
+            var llmResponse = await llmService.GenerateAsync(finalPrompt, llmOptions, cancellationToken);
             
             var latexSource = ExtractLatexFromResponse(llmResponse.Content);
 

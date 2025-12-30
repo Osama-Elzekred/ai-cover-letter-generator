@@ -1,6 +1,8 @@
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.UseCases.ParseCv;
 using CoverLetter.Application.UseCases.CustomizeCv;
+using CoverLetter.Application.UseCases.MatchCv;
+using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Entities;
 using MediatR;
@@ -57,8 +59,31 @@ public static partial class CvEndpoints
     .Produces(StatusCodes.Status200OK)
     .Produces(StatusCodes.Status404NotFound);
 
+    cvGroup.MapPost("/match", MatchCvAsync)
+        .WithSummary("Analyze CV match with job description")
+        .WithDescription("Uses AI to calculate a match score and identify matching/missing keywords.")
+        .Produces<MatchCvResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .DisableAntiforgery();
+
     return routes;
   }
+
+  private static async Task<IResult> MatchCvAsync(
+      [FromBody] MatchCvRequest request,
+      HttpContext httpContext,
+      ISender mediator,
+      CancellationToken cancellationToken)
+  {
+      var idempotencyKey = httpContext.GetIdempotencyKey();
+      var command = new MatchCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
+
+      var result = await mediator.Send(command, cancellationToken);
+      return result.ToHttpResult();
+  }
+
+  public sealed record MatchCvRequest(string CvId, string JobDescription);
   private static IResult CvExistsAsync(string cvId, IMemoryCache cache)
   {
     var cacheKey = $"cv:{cvId}";
@@ -171,7 +196,13 @@ public static partial class CvEndpoints
       CancellationToken cancellationToken)
   {
       var idempotencyKey = httpContext.GetIdempotencyKey();
-      var command = new CustomizeCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
+      var command = new CustomizeCvCommand(
+          request.CvId, 
+          request.JobDescription,
+          CustomPromptTemplate: request.CustomPromptTemplate,
+          PromptMode: request.PromptMode,
+          SelectedKeywords: request.SelectedKeywords,
+          IdempotencyKey: idempotencyKey);
 
       var result = await mediator.Send(command, cancellationToken);
 
@@ -200,6 +231,9 @@ public static partial class CvEndpoints
       var command = new CustomizeCvCommand(
           request.CvId, 
           request.JobDescription, 
+          CustomPromptTemplate: request.CustomPromptTemplate,
+          PromptMode: request.PromptMode,
+          SelectedKeywords: request.SelectedKeywords,
           ReturnLatexOnly: true, 
           IdempotencyKey: idempotencyKey);
 
@@ -215,4 +249,10 @@ public static partial class CvEndpoints
   }
 }
 
-public sealed record CustomizeCvRequest(string CvId, string JobDescription);
+public sealed record CustomizeCvRequest(
+    string CvId, 
+    string JobDescription,
+    string? CustomPromptTemplate = null,
+    PromptMode PromptMode = PromptMode.Append,
+    IEnumerable<string>? SelectedKeywords = null
+);

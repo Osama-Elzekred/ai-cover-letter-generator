@@ -1,3 +1,4 @@
+using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
 using MediatR;
 
@@ -10,6 +11,9 @@ namespace CoverLetter.Application.UseCases.CustomizeCv;
 public sealed record CustomizeCvCommand(
     string CvId,
     string JobDescription,
+    string? CustomPromptTemplate = null,
+    PromptMode PromptMode = PromptMode.Append,
+    IEnumerable<string>? SelectedKeywords = null,
     bool ReturnLatexOnly = false,
     string? IdempotencyKey = null
 ) : IRequest<Result<CustomizeCvResult>>;
