@@ -283,9 +283,23 @@ extractJobBtn.addEventListener('click', async () => {
     }
 
     // Send message to content script
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: 'EXTRACT_JOB_DATA',
-    } as ChromeMessage);
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB_DATA' } as ChromeMessage);
+    } catch (msgError: any) {
+      if (msgError.message.includes('Could not establish connection')) {
+        console.log('[Popup] Connection lost, attempting to re-inject script...');
+        // Re-inject the script
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/linkedin-detector.js']
+        });
+        // Try one more time
+        response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB_DATA' } as ChromeMessage);
+      } else {
+        throw msgError;
+      }
+    }
 
     if (response.type === 'ERROR') {
       showError(response.error || 'Failed to extract job data');
@@ -302,12 +316,7 @@ extractJobBtn.addEventListener('click', async () => {
     updateGenerateButtonState();
   } catch (error: any) {
     console.error('Extract job error:', error);
-    
-    if (error.message?.includes('Could not establish connection')) {
-      showError('Please REFRESH the LinkedIn page and try again (required after extension updates)');
-    } else {
-      showError('Failed to extract job data. Make sure you are on a LinkedIn job page.');
-    }
+    showError('Could not reach LinkedIn page. Please refresh the page manually.');
   } finally {
     hideLoading();
   }

@@ -5,7 +5,9 @@
   "description": "Extract job descriptions from LinkedIn and generate AI-powered cover letters",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "downloads",
+    "scripting"
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
