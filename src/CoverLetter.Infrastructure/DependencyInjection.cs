@@ -28,6 +28,9 @@ public static class DependencyInjection
     // Register CV parser service
     services.AddScoped<ICvParserService, CvParserService>();
 
+    // Register CV repository
+    services.AddScoped<ICvRepository, CoverLetter.Infrastructure.Repositories.CvRepository>();
+
     // Register LaTeX compiler service
     services.AddScoped<ILatexCompilerService, CoverLetter.Infrastructure.Services.LatexCompilerService>();
 

@@ -18,7 +18,4 @@ public sealed record GenerateCoverLetterCommand(
     string? CustomPromptTemplate = null,
     PromptMode PromptMode = PromptMode.Append,  // Default: append to default prompt
     string? IdempotencyKey = null
-) : IRequest<Result<GenerateCoverLetterResult>>, IIdempotentRequest
-{
-    string? IIdempotentRequest.IdempotencyKey => IdempotencyKey;
-}
+) : IRequest<Result<GenerateCoverLetterResult>>, IIdempotentRequest;

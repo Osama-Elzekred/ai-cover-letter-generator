@@ -13,12 +13,10 @@ namespace CoverLetter.Application.UseCases.ParseCv;
 /// </summary>
 public sealed class ParseCvCommandHandler(
     ICvParserService cvParserService,
-    IMemoryCache cache,
+    ICvRepository cvRepository,
     ILogger<ParseCvCommandHandler> logger)
     : IRequestHandler<ParseCvCommand, Result<ParseCvResult>>
 {
-  private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
-
   public async Task<Result<ParseCvResult>> Handle(
       ParseCvCommand request,
       CancellationToken cancellationToken)
@@ -46,14 +44,8 @@ public sealed class ParseCvCommandHandler(
 
     var cvDocument = parseResult.Value!;
 
-    // Cache the parsed CV document by ID for retrieval via GET endpoint
-    var cacheKey = $"cv:{cvDocument.Id}";
-    var cacheOptions = new MemoryCacheEntryOptions
-    {
-      AbsoluteExpirationRelativeToNow = CacheDuration,
-      Size = 1  // Each CV counts as 1 unit toward the cache size limit
-    };
-    cache.Set(cacheKey, cvDocument, cacheOptions);
+    // Cache the parsed CV document by ID
+    await cvRepository.SaveAsync(cvDocument, cancellationToken);
 
     logger.LogInformation(
         "Successfully parsed and cached CV: {CvId}, Format: {Format}, Characters: {CharCount}",

@@ -1,3 +1,4 @@
+using CoverLetter.Application.Common.Behaviors;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
 using MediatR;
@@ -16,4 +17,4 @@ public sealed record CustomizeCvCommand(
     IEnumerable<string>? SelectedKeywords = null,
     bool ReturnLatexOnly = false,
     string? IdempotencyKey = null
-) : IRequest<Result<CustomizeCvResult>>;
+) : IRequest<Result<CustomizeCvResult>>, IIdempotentRequest;

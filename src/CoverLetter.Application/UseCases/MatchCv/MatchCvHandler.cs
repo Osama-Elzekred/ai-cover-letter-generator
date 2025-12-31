@@ -10,20 +10,23 @@ namespace CoverLetter.Application.UseCases.MatchCv;
 
 public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<MatchCvResult>>
 {
-    private readonly IMemoryCache _cache;
+    private readonly ICvRepository _cvRepository;
     private readonly ILlmService _llmService;
     private readonly IUserContext _userContext;
+    private readonly IPromptRegistry _promptRegistry;
     private readonly ILogger<MatchCvHandler> _logger;
 
     public MatchCvHandler(
-        IMemoryCache cache,
+        ICvRepository cvRepository,
         ILlmService llmService,
         IUserContext userContext,
+        IPromptRegistry promptRegistry,
         ILogger<MatchCvHandler> logger)
     {
-        _cache = cache;
+        _cvRepository = cvRepository;
         _llmService = llmService;
         _userContext = userContext;
+        _promptRegistry = promptRegistry;
         _logger = logger;
     }
 
@@ -31,28 +34,20 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
     {
         try
         {
-            var cacheKey = $"cv:{request.CvId}";
-            if (!_cache.TryGetValue<CvDocument>(cacheKey, out var cvDocument) || cvDocument is null)
+            var cvResult = await _cvRepository.GetByIdAsync(request.CvId, cancellationToken);
+            if (cvResult.IsFailure)
             {
-                return Result<MatchCvResult>.Failure("CV not found or expired.", ResultType.NotFound);
+                return Result<MatchCvResult>.Failure(cvResult.Errors, cvResult.Type);
             }
+            var cvDocument = cvResult.Value!;
 
-            var prompt = $@"
-Analyze the compatibility between the following CV and Job Description.
-Return the result ONLY as a JSON object with these fields:
-- matchScore: (integer, 0-100)
-- matchingKeywords: (array of strings, key technical/soft skills present in both)
-- missingKeywords: (array of strings, important skills mentioned in the job but missing in the CV)
-- analysisSummary: (short 2-sentence summary of the fit)
+            var variables = new Dictionary<string, string>
+            {
+                { "JobDescription", request.JobDescription },
+                { "CvText", cvDocument.ExtractedText }
+            };
 
-JOB DESCRIPTION:
-{request.JobDescription}
-
-CV CONTENT:
-{cvDocument.ExtractedText}
-
-Output only valid JSON:
-";
+            var prompt = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
 
             var options = new LlmGenerationOptions(
                 SystemMessage: "You are an expert recruiter AI. Analyze job compatibility accurately.",

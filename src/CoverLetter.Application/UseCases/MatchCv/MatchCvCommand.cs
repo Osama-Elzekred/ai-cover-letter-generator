@@ -1,3 +1,4 @@
+using CoverLetter.Application.Common.Behaviors;
 using CoverLetter.Domain.Common;
 using MediatR;
 
@@ -7,7 +8,7 @@ public sealed record MatchCvCommand(
     string CvId,
     string JobDescription,
     string? IdempotencyKey = null
-) : IRequest<Result<MatchCvResult>>;
+) : IRequest<Result<MatchCvResult>>, IIdempotentRequest;
 
 public sealed record MatchCvResult(
     int MatchScore,

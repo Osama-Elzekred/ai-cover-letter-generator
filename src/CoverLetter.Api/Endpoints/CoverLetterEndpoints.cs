@@ -46,13 +46,10 @@ public static class CoverLetterEndpoints
 
     private static async Task<IResult> GenerateCoverLetterFromCvId(
         GenerateCoverLetterFromCvIdRequest request,
-        HttpContext httpContext,
         ISender mediator,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
     {
-
-        // Extract idempotency key using extension method
-        var idempotencyKey = httpContext.GetIdempotencyKey();
 
         var command = new GenerateCoverLetterCommand(
             JobDescription: request.JobDescription,
@@ -70,13 +67,13 @@ public static class CoverLetterEndpoints
 
     private static async Task<IResult> GenerateCoverLetterFromText(
         GenerateCoverLetterFromTextRequest request,
-        HttpContext httpContext,
         ISender mediator,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
     {
 
-        // Extract idempotency key using extension method
-        var idempotencyKey = httpContext.GetIdempotencyKey();
+        // Extract idempotency key is now handled by parameter binding
+        // var idempotencyKey = httpContext.GetIdempotencyKey();
 
         var command = new GenerateCoverLetterCommand(
             JobDescription: request.JobDescription,

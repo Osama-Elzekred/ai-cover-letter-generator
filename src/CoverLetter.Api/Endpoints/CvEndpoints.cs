@@ -33,18 +33,17 @@ public static partial class CvEndpoints
 
     cvGroup.MapPost("/customize", CustomizeCvAsync)
         .WithSummary("Customize a CV based on job description")
-        .WithDescription("Uses AI to map CV information into a professional LaTeX template tailored to the provided job description. Returns a PDF file.")
-        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .WithDescription("Uses AI to map CV information into a professional LaTeX template. Returns both PDF and LaTeX source.")
+        .Produces<CustomizeCvResult>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .DisableAntiforgery();
 
-    cvGroup.MapPost("/customize/debug", CustomizeCvDebugAsync)
-        .WithSummary("Get raw LaTeX customization result")
-        .WithDescription("Returns the LaTeX source instead of compiling to PDF. Useful for debugging prompt output.")
-        .Produces(StatusCodes.Status200OK)
+    cvGroup.MapPost("/compile", CompileLatexAsync)
+        .WithSummary("Compile raw LaTeX to PDF")
+        .WithDescription("Takes raw LaTeX source and returns a compiled PDF file.")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
         .DisableAntiforgery();
 
     cvGroup.MapGet("/{cvId}", GetCvAsync)
@@ -72,11 +71,10 @@ public static partial class CvEndpoints
 
   private static async Task<IResult> MatchCvAsync(
       [FromBody] MatchCvRequest request,
-      HttpContext httpContext,
       ISender mediator,
-      CancellationToken cancellationToken)
+      CancellationToken cancellationToken, 
+      [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var idempotencyKey = httpContext.GetIdempotencyKey();
       var command = new MatchCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
 
       var result = await mediator.Send(command, cancellationToken);
@@ -100,9 +98,9 @@ public static partial class CvEndpoints
   /// </summary>
   private static async Task<IResult> ParseCvAsync(
       [FromForm] ParseCvForm form,
-      HttpContext httpContext,
       ISender mediator,
-      CancellationToken cancellationToken)
+      CancellationToken cancellationToken,
+      [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
     // Determine format from parameter or file extension
     var cvFormat = DetermineFormat(form.Format, form.File.FileName);
@@ -120,8 +118,8 @@ public static partial class CvEndpoints
     var fileContent = memoryStream.ToArray();
 
 
-    // Extract idempotency key using extension method
-    var idempotencyKey = httpContext.GetIdempotencyKey();
+    // Extract idempotency key is now handled by parameter binding
+    // var idempotencyKey = httpContext.GetIdempotencyKey();
 
     // Create command and send to handler
     var command = new ParseCvCommand(
@@ -191,11 +189,10 @@ public static partial class CvEndpoints
   /// </summary>
   private static async Task<IResult> CustomizeCvAsync(
       [FromBody] CustomizeCvRequest request,
-      HttpContext httpContext,
       ISender mediator,
-      CancellationToken cancellationToken)
+      CancellationToken cancellationToken,
+      [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var idempotencyKey = httpContext.GetIdempotencyKey();
       var command = new CustomizeCvCommand(
           request.CvId, 
           request.JobDescription,
@@ -205,49 +202,25 @@ public static partial class CvEndpoints
           IdempotencyKey: idempotencyKey);
 
       var result = await mediator.Send(command, cancellationToken);
-
-      if (result.IsFailure)
-      {
-          return result.ToHttpResult();
-      }
-
-      return Results.File(
-          result.Value.PdfContent!, 
-          "application/pdf", 
-          result.Value.FileName);
+      return result.ToHttpResult();
   }
 
-  /// <summary>
-  /// POST /api/v1/cv/customize/debug
-  /// Returns the raw LaTeX source instead of compiling to PDF.
-  /// </summary>
-  private static async Task<IResult> CustomizeCvDebugAsync(
-      [FromBody] CustomizeCvRequest request,
-      HttpContext httpContext,
+  private static async Task<IResult> CompileLatexAsync(
+      [FromBody] CompileLatexRequest request,
       ISender mediator,
-      CancellationToken cancellationToken)
+      CancellationToken cancellationToken,
+      [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var idempotencyKey = httpContext.GetIdempotencyKey();
-      var command = new CustomizeCvCommand(
-          request.CvId, 
-          request.JobDescription, 
-          CustomPromptTemplate: request.CustomPromptTemplate,
-          PromptMode: request.PromptMode,
-          SelectedKeywords: request.SelectedKeywords,
-          ReturnLatexOnly: true, 
-          IdempotencyKey: idempotencyKey);
-
+      var command = new CompileLatexCommand(request.LatexSource, idempotencyKey);
       var result = await mediator.Send(command, cancellationToken);
 
-      if (result.IsFailure)
-      {
-          return result.ToHttpResult();
-      }
+      if (result.IsFailure) return result.ToHttpResult();
 
-      // Return raw plain text for easier copy-pasting into Overleaf/Editors
-      return Results.Content(result.Value.LatexSource!, "text/plain");
+      return Results.File(result.Value.PdfContent, "application/pdf", result.Value.FileName);
   }
 }
+
+public sealed record CompileLatexRequest(string LatexSource);
 
 public sealed record CustomizeCvRequest(
     string CvId, 

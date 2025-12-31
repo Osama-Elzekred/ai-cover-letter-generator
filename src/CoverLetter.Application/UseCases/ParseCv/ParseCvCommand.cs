@@ -17,6 +17,5 @@ public sealed record ParseCvCommand(
     string? IdempotencyKey = null
 ) : IRequest<Result<ParseCvResult>>, IIdempotentRequest
 {
-    // IIdempotentRequest implementation
     string? IIdempotentRequest.IdempotencyKey => IdempotencyKey;
 }
