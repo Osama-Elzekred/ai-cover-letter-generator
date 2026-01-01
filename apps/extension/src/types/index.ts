@@ -40,6 +40,24 @@ export interface CvParseResponse {
   uploadedAt: string;
 }
 
+export interface CustomizeCvResponse {
+  pdfContent: string; // Base64
+  latexSource: string;
+  fileName: string;
+  model: string;
+}
+
+export interface CompileLatexRequest {
+  latexSource: string;
+}
+
+export interface MatchCvResponse {
+  matchScore: number;
+  matchingKeywords: string[];
+  missingKeywords: string[];
+  analysisSummary: string;
+}
+
 export interface ApiError {
   type: string;
   title: string;

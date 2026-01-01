@@ -6,6 +6,8 @@ import type {
   CoverLetterRequest, 
   CoverLetterResponse, 
   CvParseResponse, 
+  CustomizeCvResponse,
+  CompileLatexRequest,
   ApiError 
 } from '../types/index.js';
 import { getUserId, getApiKey } from './storage.js';
@@ -143,12 +145,17 @@ export async function generateCoverLetter(
 }
 
 /**
- * Customize CV based on job description and return PDF blob
+ * Customize CV based on job description
  */
 export async function customizeCv(
   cvId: string,
-  jobDescription: string
-): Promise<Blob> {
+  jobDescription: string,
+  options?: {
+    selectedKeywords?: string[];
+    customPromptTemplate?: string;
+    promptMode?: number;
+  }
+): Promise<CustomizeCvResponse> {
   const userId = await getUserId();
   const apiKey = await getApiKey();
   
@@ -165,7 +172,42 @@ export async function customizeCv(
   const response = await fetchWithRetry(`${BASE_URL}/cv/customize`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ cvId, jobDescription }),
+    body: JSON.stringify({ 
+      cvId, 
+      jobDescription,
+      ...options
+    }),
+  });
+  
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new ApiClientError(response.status, error);
+  }
+  
+  return await response.json();
+}
+
+/**
+ * Compile raw LaTeX to PDF
+ */
+export async function compileLatex(latexSource: string): Promise<Blob> {
+  const userId = await getUserId();
+  const apiKey = await getApiKey();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-User-Id': userId,
+    'X-Idempotency-Key': generateIdempotencyKey(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  
+  const response = await fetchWithRetry(`${BASE_URL}/cv/compile`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ latexSource }),
   });
   
   if (!response.ok) {

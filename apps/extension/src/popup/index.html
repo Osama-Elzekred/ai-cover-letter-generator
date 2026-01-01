@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Cover Letter Generator</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="lib/prism.css">
 </head>
 <body>
   <div class="container">
@@ -168,6 +169,81 @@
       </div>
     </section>
 
+    <!-- CV Editor Section -->
+    <section class="section hidden" id="cvEditorSection">
+      <div class="result-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 class="section-title" style="margin: 0;">🛠️ CV Source Code</h2>
+        <div class="tab-pill" style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 20px;">
+          <button class="tab-pill-btn active" id="btnViewSource" style="padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 16px;">Source</button>
+          <button class="tab-pill-btn" id="btnViewPreview" style="padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 16px;">Preview</button>
+        </div>
+      </div>
+      
+      <div id="sourceEditor">
+        <!-- Highlighted Editor Container -->
+        <div class="editor-container">
+          <pre id="highlighting" aria-hidden="true"><code class="language-latex" id="highlighting-content"></code></pre>
+          <textarea id="latexSource" spellcheck="false" placeholder="LaTeX source code will appear here..."></textarea>
+        </div>
+
+        <div class="cv-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+          <button class="btn btn-primary" id="recompileBtn" style="flex: 1; min-width: 120px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Re-compile
+          </button>
+          <button class="btn btn-secondary" id="downloadTexBtn" title="Download .tex">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+          <button class="btn btn-secondary" id="overleafBtn" title="Open in Overleaf">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Overleaf
+          </button>
+        </div>
+      </div>
+
+      <div id="pdfMessage" class="hidden">
+        <div class="pdf-preview-box">
+          <div class="pdf-preview-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+            </svg>
+          </div>
+          <p class="pdf-preview-status">PDF Ready for Review</p>
+          <div class="pdf-preview-actions">
+            <button class="btn btn-primary btn-sm" id="viewPdfBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              View in Browser
+            </button>
+            <button class="btn btn-secondary btn-sm" id="downloadPdfBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Settings Section -->
     <details class="settings-section">
       <summary class="settings-header">⚙️ Settings</summary>
@@ -215,6 +291,7 @@
     </div>
   </div>
 
+  <script src="lib/prism.js"></script>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

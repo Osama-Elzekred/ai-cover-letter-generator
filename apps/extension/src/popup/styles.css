@@ -432,3 +432,113 @@ body {
 .toast-success { background: #10b981; }
 
 .hidden { display: none !important; }
+
+/* ============================================
+   CV Editor & Utility Classes
+   ============================================ */
+
+.pdf-preview-box {
+  padding: 32px 24px;
+  background: var(--bg-secondary);
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.pdf-preview-box:hover {
+  border-color: var(--primary);
+  background: #fdfdfd;
+}
+
+.pdf-preview-icon {
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.pdf-preview-status {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.pdf-preview-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.editor-container {
+  position: relative;
+  height: 250px;
+  background: #1e293b;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#latexSource, #highlighting {
+  /* Both elements need the same font/padding/etc */
+  margin: 0 !important;
+  padding: 12px !important;
+  border: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box !important;
+}
+
+#latexSource {
+  z-index: 2;
+  background: transparent !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: white !important; /* Show the cursor */
+  resize: none !important;
+  outline: none !important;
+  overflow: auto !important;
+}
+
+#highlighting {
+  z-index: 1;
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+/* Hide scrollbars but keep functionality */
+#latexSource::-webkit-scrollbar { width: 0; }
+#highlighting::-webkit-scrollbar { width: 0; }
+
+.tab-pill-btn {
+  transition: all var(--transition-fast);
+  color: var(--text-secondary);
+}
+
+.tab-pill-btn.active {
+  background: white !important;
+  color: var(--primary);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.w-full { width: 100%; }
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+}

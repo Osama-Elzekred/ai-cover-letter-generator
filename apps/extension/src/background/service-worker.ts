@@ -30,6 +30,17 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     handleMatchCv(message.payload, sendResponse);
     return true;
   }
+
+  if (message.type === 'COMPILE_LATEX_DIRECT') {
+    handleCompileLatex(message.payload, sendResponse);
+    return true;
+  }
+
+  if (message.type === 'OPEN_OVERLEAF_DIRECT') {
+    handleOpenOverleaf(message.payload);
+    sendResponse({ type: 'SUCCESS' });
+    return true;
+  }
   
   return false;
 });
@@ -55,6 +66,15 @@ async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void)
     const { cvId, userId, apiKey } = await getAuthDetails();
     const fullJobDesc = `Job Title: ${jobData.jobTitle}\nCompany: ${jobData.companyName}\n\nJob Description:\n${jobData.jobDescription}`;
     
+    // Save job data to storage so popup can sync
+    await chrome.storage.local.set({ 
+      lastJobData: {
+        jobTitle: jobData.jobTitle,
+        companyName: jobData.companyName,
+        jobDescription: jobData.jobDescription
+      }
+    });
+
     const headers: any = {
       'Content-Type': 'application/json',
       'X-User-Id': userId,
@@ -70,20 +90,24 @@ async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void)
         jobDescription: fullJobDesc,
         selectedKeywords: jobData.selectedKeywords,
         customPromptTemplate: jobData.customPromptTemplate,
-        promptMode: jobData.promptMode || 0 // 0 = Append by default
+        promptMode: jobData.promptMode || 0 
       })
     });
 
     if (!response.ok) throw new Error('API failed with status ' + response.status);
 
-    const blob = await response.blob();
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const fileName = `CV_${jobData.companyName.replace(/\s+/g, '_')}.pdf`;
-      chrome.downloads.download({ url: reader.result as string, filename: fileName, saveAs: false });
-      sendResponse({ type: 'SUCCESS' });
-    };
-    reader.readAsDataURL(blob);
+    const result = await response.json();
+    
+    // Persist editor state for the popup
+    await chrome.storage.local.set({
+      editorState: {
+        latex: result.latexSource,
+        pdfBase64: result.pdfContent,
+        updatedAt: Date.now()
+      }
+    });
+
+    sendResponse({ type: 'SUCCESS', payload: result });
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }
@@ -97,6 +121,15 @@ async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) 
     const { cvId, userId, apiKey } = await getAuthDetails();
     const fullJobDesc = `Job Title: ${jobData.jobTitle}\nCompany: ${jobData.companyName}\n\nJob Description:\n${jobData.jobDescription}`;
     
+    // Save job data to storage so popup can sync
+    await chrome.storage.local.set({ 
+      lastJobData: {
+        jobTitle: jobData.jobTitle,
+        companyName: jobData.companyName,
+        jobDescription: jobData.jobDescription
+      }
+    });
+
     const headers: any = {
       'Content-Type': 'application/json',
       'X-User-Id': userId,
@@ -107,20 +140,22 @@ async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) 
     const response = await fetch(`${BASE_URL}/cover-letters/generate`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ cvId, jobDescription: fullJobDesc, promptMode: 1 }) 
+      body: JSON.stringify({ 
+        cvId, 
+        jobDescription: fullJobDesc, 
+        customPromptTemplate: jobData.customPromptTemplate,
+        promptMode: jobData.promptMode || 1 
+      }) 
     });
 
     if (!response.ok) throw new Error('API failed with status ' + response.status);
 
     const data = await response.json();
-    const blob = new Blob([data.coverLetter], { type: 'text/plain' });
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const fileName = `CoverLetter_${jobData.companyName.replace(/\s+/g, '_')}.txt`;
-      chrome.downloads.download({ url: reader.result as string, filename: fileName, saveAs: false });
-      sendResponse({ type: 'SUCCESS' });
-    };
-    reader.readAsDataURL(blob);
+    
+    // Persist cover letter for the popup
+    await chrome.storage.local.set({ generatedCoverLetter: data.coverLetter });
+
+    sendResponse({ type: 'SUCCESS', payload: data });
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }
@@ -154,6 +189,70 @@ async function handleMatchCv(jobData: any, sendResponse: (msg: any) => void) {
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }
+}
+
+/**
+ * Logic for Compiling LaTeX
+ */
+async function handleCompileLatex(payload: any, sendResponse: (msg: any) => void) {
+  try {
+    const { userId, apiKey } = await getAuthDetails();
+    
+    const headers: any = {
+      'Content-Type': 'application/json',
+      'X-User-Id': userId,
+      'X-Idempotency-Key': crypto.randomUUID(),
+    };
+    if (apiKey) headers['X-Api-Key'] = apiKey;
+
+    const response = await fetch(`${BASE_URL}/cv/compile`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ latexSource: payload.latexSource })
+    });
+
+    if (!response.ok) throw new Error('Compilation failed. Check LaTeX syntax.');
+
+    const blob = await response.blob();
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      sendResponse({ 
+        type: 'SUCCESS', 
+        payload: { pdfContent: (reader.result as string).split(',')[1] } 
+      });
+    };
+    reader.readAsDataURL(blob);
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
+}
+
+/**
+ * Logic for Opening Overleaf
+ */
+function handleOpenOverleaf(payload: any) {
+  const { latexSource } = payload;
+  const encodedSnip = encodeURIComponent(latexSource);
+  
+  // We use a data URI to create a page that auto-submits the form
+  const formPage = `
+    <!DOCTYPE html>
+    <html>
+      <head><title>Opening Overleaf...</title></head>
+      <body>
+        <form id="overleafForm" action="https://www.overleaf.com/docs" method="POST">
+          <input type="hidden" name="encoded_snip" value="${encodedSnip}">
+          <input type="hidden" name="snip_name" value="Resume.tex">
+        </form>
+        <script>
+          document.getElementById('overleafForm').submit();
+        </script>
+      </body>
+    </html>
+  `;
+  
+  const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(formPage);
+  chrome.tabs.create({ url: dataUrl });
 }
 
 chrome.runtime.onInstalled.addListener(() => console.log('[Service Worker] Extension Active'));

@@ -34,6 +34,12 @@ let clPromptEnabled = false;
 let cvPromptMode: 0 | 1 = 0; // 0: Append, 1: Override
 let clPromptMode: 0 | 1 = 0; // Default to Append now, user can switch
 
+// Result State
+let isCvReady = false;
+let isLetterReady = false;
+let lastGeneratedCv: any = null;
+let lastGeneratedLetter: any = null;
+
 /**
  * Extract job data from LinkedIn job posting page
  */
@@ -239,7 +245,56 @@ function renderMatchTab(): string {
   `;
 }
 
+// Editor View State
+let editorView: 'source' | 'preview' = 'source';
+
 function renderResumeTab(): string {
+  if (isCvReady && lastGeneratedCv) {
+    return `
+      <div class="editor-view-container animate-fade-in">
+        <div class="editor-header">
+           <span class="status-badge">CV Source Code</span>
+           <div class="editor-tabs">
+             <button class="editor-tab-btn ${editorView === 'source' ? 'active' : ''}" data-view="source">Source</button>
+             <button class="editor-tab-btn ${editorView === 'preview' ? 'active' : ''}" data-view="preview">Preview</button>
+           </div>
+        </div>
+
+        ${editorView === 'source' ? `
+          <div class="widget-editor-container">
+            <pre class="widget-editor-highlighting" id="widget-highlighting"><code class="language-latex" id="widget-highlighting-content"></code></pre>
+            <textarea class="widget-editor-textarea" id="widget-latex-source" spellcheck="false">${lastGeneratedCv.latexSource}</textarea>
+          </div>
+          <div class="widget-editor-actions">
+            <button id="widget-recompile-btn" class="primary-btn ai-grad" style="flex: 2;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2" style="margin-right: 6px;"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              Re-compile
+            </button>
+            <button id="widget-download-btn" class="secondary-btn" title="Download PDF">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+            </button>
+            <button id="widget-overleaf-btn" class="secondary-btn overleaf-btn" title="Open in Overleaf" style="color: white; border: none;">
+               Overleaf
+            </button>
+          </div>
+        ` : `
+          <div class="widget-preview-box">
+             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#5d5bd4" stroke-width="1.5" style="margin-bottom: 16px;">
+               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+             </svg>
+             <p style="font-size: 13px; color: #1e293b; font-weight: 600; margin-bottom: 15px;">PDF Preview Ready</p>
+             <div style="display: flex; gap: 10px;">
+                <button id="widget-view-browser-btn" class="primary-btn ai-grad" style="padding: 8px 16px; font-size: 12px;">View in Browser</button>
+                <button id="widget-internal-download-btn" class="secondary-btn" style="font-size: 12px;">Download PDF</button>
+             </div>
+          </div>
+        `}
+        <p class="hint-text" style="margin-top: 12px;">💡 Changes here are synced with your extension editor.</p>
+      </div>
+    `;
+  }
+
   return `
     <div class="action-view">
       <div class="prompt-toggle-row">
@@ -278,6 +333,23 @@ function renderResumeTab(): string {
 }
 
 function renderLetterTab(): string {
+  if (isLetterReady) {
+    return `
+      <div class="success-view animate-fade-in">
+        <div class="success-icon-box">
+          <svg viewBox="0 0 24 24" width="40" height="40" stroke="#8b5cf6" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </div>
+        <h4>Letter Generated!</h4>
+        <p>Your personalized cover letter is ready and saved to your extension.</p>
+        
+        <div class="success-actions">
+          <button id="ai-download-cl-btn" class="primary-btn cl-grad">Download TXT</button>
+          <button id="ai-reset-cl-btn" class="secondary-btn">Regenerate</button>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="action-view">
       <div class="prompt-toggle-row">
@@ -398,6 +470,166 @@ function attachEvents(container: HTMLElement) {
     container.classList.toggle('collapsed', isCollapsed);
     renderWidget(container);
   });
+
+  // Resume Editor Tab Switching
+  container.querySelectorAll('.editor-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editorView = (btn as HTMLElement).dataset.view as any;
+      renderWidget(container);
+    });
+  });
+
+  // Editor Sync and Actions
+  const latexSource = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
+  if (latexSource) {
+    // Initial highlighting
+    updateWidgetEditor(container);
+
+    latexSource.addEventListener('input', () => {
+      updateWidgetEditor(container);
+    });
+
+    latexSource.addEventListener('scroll', () => {
+      const highlighting = container.querySelector('#widget-highlighting') as HTMLElement;
+      if (highlighting) {
+        highlighting.scrollTop = latexSource.scrollTop;
+        highlighting.scrollLeft = latexSource.scrollLeft;
+      }
+    });
+  }
+
+  const recompileBtn = container.querySelector('#widget-recompile-btn');
+  if (recompileBtn) recompileBtn.addEventListener('click', handleWidgetRecompile);
+
+  const downloadBtn = container.querySelector('#widget-download-btn');
+  if (downloadBtn) downloadBtn.addEventListener('click', () => {
+      if (lastGeneratedCv) downloadFile(lastGeneratedCv.pdfContent, 'customized_cv.pdf', 'application/pdf');
+  });
+
+  const internalDownloadBtn = container.querySelector('#widget-internal-download-btn');
+  if (internalDownloadBtn) internalDownloadBtn.addEventListener('click', () => {
+      if (lastGeneratedCv) downloadFile(lastGeneratedCv.pdfContent, 'customized_cv.pdf', 'application/pdf');
+  });
+
+  const viewBrowserBtn = container.querySelector('#widget-view-browser-btn');
+  if (viewBrowserBtn) viewBrowserBtn.addEventListener('click', () => {
+      if (!lastGeneratedCv) return;
+      const byteCharacters = atob(lastGeneratedCv.pdfContent);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+  });
+
+  const overleafBtn = container.querySelector('#widget-overleaf-btn');
+  if (overleafBtn) overleafBtn.addEventListener('click', handleWidgetOverleaf);
+}
+
+function updateWidgetEditor(container: HTMLElement) {
+  const textarea = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
+  const highlightingContent = container.querySelector('#widget-highlighting-content') as HTMLElement;
+  if (!textarea || !highlightingContent) return;
+
+  let code = textarea.value;
+  if (code[code.length-1] == "\n") code += " ";
+  highlightingContent.textContent = code;
+  
+  // Use Prism if available
+  const anyGlobal = (globalThis as any);
+  const prism = anyGlobal.Prism || (window as any).Prism;
+  
+  if (prism) {
+    if (prism.languages && prism.languages.latex) {
+      console.log('[AI Co-Pilot] Prism & LaTeX detected, highlighting...');
+      prism.highlightElement(highlightingContent);
+    } else {
+      console.warn('[AI Co-Pilot] Prism found but LaTeX grammar is missing!', prism.languages);
+      // Fallback: if latex is missing, maybe it's under another name or not loaded
+    }
+  } else {
+    console.error('[AI Co-Pilot] Prism library NOT found in content script scope.');
+  }
+
+  // Sync to Storage so Popup is updated too
+  if (lastGeneratedCv) {
+    lastGeneratedCv.latexSource = textarea.value;
+    chrome.storage.local.set({
+      editorState: {
+        latex: textarea.value,
+        pdfBase64: lastGeneratedCv.pdfContent,
+        updatedAt: Date.now()
+      }
+    });
+  }
+}
+
+async function handleWidgetRecompile() {
+  const container = document.getElementById('ai-copilot-container')!;
+  const textarea = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
+  if (!textarea || !lastGeneratedCv) return;
+
+  const source = textarea.value.trim();
+  isProcessing = true;
+  renderWidget(container);
+
+  try {
+    const response = await chrome.runtime.sendMessage({ 
+      type: 'COMPILE_LATEX_DIRECT', 
+      payload: { latexSource: source } 
+    });
+
+    if (response?.type === 'SUCCESS') {
+      lastGeneratedCv.pdfContent = response.payload.pdfContent;
+      lastGeneratedCv.latexSource = source;
+      editorView = 'preview';
+      
+      // Update persistent storage
+      await chrome.storage.local.set({
+        editorState: {
+          latex: source,
+          pdfBase64: response.payload.pdfContent,
+          updatedAt: Date.now()
+        }
+      });
+    } else {
+      alert(response?.error || 'Re-compile failed.');
+    }
+  } catch (err) {
+    alert('Error connecting to compiler.');
+  } finally {
+    isProcessing = false;
+    renderWidget(container);
+  }
+}
+
+function handleWidgetOverleaf() {
+  const container = document.getElementById('ai-copilot-container')!;
+  const textarea = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
+  if (!textarea) return;
+
+  const source = textarea.value;
+  chrome.runtime.sendMessage({
+    type: 'OPEN_OVERLEAF_DIRECT',
+    payload: { latexSource: source }
+  });
+}
+
+function downloadFile(base64: string, fileName: string, type: string) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // --- Action Handlers ---
@@ -448,7 +680,10 @@ async function handleMagicCV() {
       } 
     });
     
-    if (response?.type !== 'SUCCESS') {
+    if (response?.type === 'SUCCESS') {
+        isCvReady = true;
+        lastGeneratedCv = response.payload;
+    } else {
         alert(response?.error || 'Generation failed.');
     }
   } catch (err) {
@@ -478,7 +713,10 @@ async function handleCoverLetter() {
       } 
     });
     
-    if (response?.type !== 'SUCCESS') {
+    if (response?.type === 'SUCCESS') {
+        isLetterReady = true;
+        lastGeneratedLetter = response.payload;
+    } else {
         alert(response?.error || 'Generation failed.');
     }
   } catch (err) {
@@ -744,6 +982,76 @@ function injectStyles() {
     @keyframes spin { to { transform: rotate(360deg); } }
     .processing-view { text-align: center; padding: 20px; }
     .processing-view p { font-size: 13px; color: #64748b; }
+
+    /* Success View */
+    .success-view { text-align: center; padding: 10px 0; }
+    .success-icon-box { margin-bottom: 12px; }
+    .success-view h4 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0; }
+    .success-view p { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .success-actions { display: flex; gap: 10px; margin-bottom: 15px; }
+    .hint-text { font-size: 11px; color: #94a3b8; font-style: italic; }
+
+    /* Embedded Editor Styles */
+    .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .editor-tabs { display: flex; background: #f1f5f9; padding: 3px; border-radius: 20px; }
+    .editor-tab-btn { padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; border-radius: 16px; color: #64748b; }
+    .editor-tab-btn.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    .widget-editor-container { position: relative; height: 300px; background: #1e1e1e; border-radius: 8px; overflow: hidden; border: 1px solid #333; }
+    .widget-editor-textarea, .widget-editor-highlighting {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      margin: 0 !important; padding: 16px !important; border: none !important; 
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; 
+      font-size: 13px !important; line-height: 1.5 !important;
+      white-space: pre !important; 
+      word-wrap: normal !important;
+      overflow: auto !important; box-sizing: border-box !important;
+      text-align: left !important;
+    }
+    .widget-editor-textarea {
+      background: transparent !important; 
+      color: transparent !important; 
+      -webkit-text-fill-color: transparent !important;
+      caret-color: white !important; 
+      z-index: 2 !important; 
+      resize: none !important; 
+      outline: none !important;
+    }
+    .widget-editor-highlighting { z-index: 1 !important; pointer-events: none !important; color: #ccc !important; }
+    .widget-editor-highlighting code { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; }
+
+    /* Prism Colors Integration - High Specificity */
+    #ai-copilot-container .token.comment { color: #999 !important; }
+    #ai-copilot-container .token.punctuation { color: #ccc !important; }
+    #ai-copilot-container .token.tag, 
+    #ai-copilot-container .token.attr-name, 
+    #ai-copilot-container .token.namespace { color: #e2777a !important; }
+    #ai-copilot-container .token.boolean, 
+    #ai-copilot-container .token.number, 
+    #ai-copilot-container .token.function { color: #f08d49 !important; }
+    #ai-copilot-container .token.property, 
+    #ai-copilot-container .token.class-name, 
+    #ai-copilot-container .token.constant, 
+    #ai-copilot-container .token.symbol { color: #f8c555 !important; }
+    #ai-copilot-container .token.selector, 
+    #ai-copilot-container .token.important, 
+    #ai-copilot-container .token.atrule, 
+    #ai-copilot-container .token.keyword, 
+    #ai-copilot-container .token.builtin { color: #cc99cd !important; }
+    #ai-copilot-container .token.string, 
+    #ai-copilot-container .token.char, 
+    #ai-copilot-container .token.attr-value, 
+    #ai-copilot-container .token.regex, 
+    #ai-copilot-container .token.variable { color: #7ec699 !important; }
+    #ai-copilot-container .token.operator, 
+    #ai-copilot-container .token.entity, 
+    #ai-copilot-container .token.url { color: #67cdcc !important; }
+
+    .widget-editor-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .widget-preview-box { height: 300px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+    
+    .overleaf-btn { background: #47a1ad !important; }
+    .btn-icon { margin-right: 6px; }
   `;
   document.head.appendChild(style);
 }

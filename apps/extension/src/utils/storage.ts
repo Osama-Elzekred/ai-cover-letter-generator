@@ -87,6 +87,49 @@ export async function getLastJobData(): Promise<{ jobTitle: string; companyName:
 }
 
 /**
+ * Save Editor state (LaTeX and PDF)
+ */
+export async function saveEditorState(latex: string, pdfBase64: string | null): Promise<void> {
+  await chrome.storage.local.set({ 
+    editorState: { 
+      latex, 
+      pdfBase64,
+      updatedAt: Date.now()
+    } 
+  });
+}
+
+/**
+ * Get stored Editor state
+ */
+export async function getEditorState(): Promise<{ latex: string; pdfBase64: string | null } | null> {
+  const data = await chrome.storage.local.get('editorState');
+  return data.editorState || null;
+}
+
+/**
+ * Delete Editor state
+ */
+export async function deleteEditorState(): Promise<void> {
+  await chrome.storage.local.remove('editorState');
+}
+
+/**
+ * Save generated cover letter
+ */
+export async function saveGeneratedCoverLetter(text: string): Promise<void> {
+  await chrome.storage.local.set({ generatedCoverLetter: text });
+}
+
+/**
+ * Get generated cover letter
+ */
+export async function getGeneratedCoverLetter(): Promise<string | null> {
+  const data = await chrome.storage.local.get('generatedCoverLetter');
+  return data.generatedCoverLetter || null;
+}
+
+/**
  * Clear all storage data
  */
 export async function clearAllData(): Promise<void> {

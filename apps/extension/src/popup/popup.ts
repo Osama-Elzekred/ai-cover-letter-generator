@@ -42,6 +42,20 @@ const errorMessage = document.getElementById('errorMessage') as HTMLSpanElement;
 const successToast = document.getElementById('successToast') as HTMLDivElement;
 const successMessage = document.getElementById('successMessage') as HTMLSpanElement;
 
+const cvEditorSection = document.getElementById('cvEditorSection') as HTMLElement;
+const latexSourceTextarea = document.getElementById('latexSource') as HTMLTextAreaElement;
+const highlighting = document.getElementById('highlighting') as HTMLElement;
+const highlightingContent = document.getElementById('highlighting-content') as HTMLElement;
+const recompileBtn = document.getElementById('recompileBtn') as HTMLButtonElement;
+const downloadTexBtn = document.getElementById('downloadTexBtn') as HTMLButtonElement;
+const downloadPdfBtn = document.getElementById('downloadPdfBtn') as HTMLButtonElement;
+const viewPdfBtn = document.getElementById('viewPdfBtn') as HTMLButtonElement;
+const overleafBtn = document.getElementById('overleafBtn') as HTMLButtonElement;
+const btnViewSource = document.getElementById('btnViewSource') as HTMLButtonElement;
+const btnViewPreview = document.getElementById('btnViewPreview') as HTMLButtonElement;
+const sourceEditor = document.getElementById('sourceEditor') as HTMLDivElement;
+const pdfMessage = document.getElementById('pdfMessage') as HTMLDivElement;
+
 // Tabs
 const tabUpload = document.getElementById('tabUpload') as HTMLButtonElement;
 const tabText = document.getElementById('tabText') as HTMLButtonElement;
@@ -62,6 +76,7 @@ const modeReplace = document.getElementById('modeReplace') as HTMLInputElement;
 
 let currentCvId: string | null = null;
 let generatedCoverLetter: string | null = null;
+let currentPdfBase64: string | null = null;
 let activeTab: 'upload' | 'text' = 'upload';
 
 // ============================================
@@ -99,6 +114,33 @@ async function init() {
   }
 
   try {
+    // Load editor state
+    const editorState = await storage.getEditorState();
+    if (editorState) {
+      console.log('[Popup] Restoring editor state');
+      currentPdfBase64 = editorState.pdfBase64;
+      latexSourceTextarea.value = editorState.latex;
+      updateEditor();
+      cvEditorSection.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('[Popup] Error loading editor state:', error);
+  }
+
+  try {
+    // Load cover letter
+    const cl = await storage.getGeneratedCoverLetter();
+    if (cl) {
+      console.log('[Popup] Restoring cover letter');
+      generatedCoverLetter = cl;
+      resultContent.textContent = cl;
+      resultSection.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('[Popup] Error loading cover letter:', error);
+  }
+
+  try {
     // Load API key status
     const apiKeyStatusData = await api.getGroqApiKey();
     if (apiKeyStatusData) {
@@ -111,6 +153,23 @@ async function init() {
 
   updateGenerateButtonState();
 }
+
+// Auto-save Job Data
+function autoSaveJobData() {
+  const jobData = {
+    jobTitle: jobTitleInput.value,
+    companyName: companyNameInput.value,
+    jobDescription: jobDescriptionInput.value
+  };
+  storage.saveLastJobData(jobData);
+}
+
+[jobTitleInput, companyNameInput, jobDescriptionInput].forEach(input => {
+  input.addEventListener('input', () => {
+    autoSaveJobData();
+    updateGenerateButtonState();
+  });
+});
 
 // ============================================
 // CV Upload
@@ -223,7 +282,7 @@ deleteCvBtn.addEventListener('click', async (e) => {
 // ============================================
 
 customizeCvBtn.addEventListener('click', async (e) => {
-  e.stopPropagation(); // Prevent triggering CV upload file picker
+  e.stopPropagation();
   
   if (!currentCvId) {
     showError('Please upload your CV first');
@@ -239,27 +298,187 @@ customizeCvBtn.addEventListener('click', async (e) => {
     return;
   }
 
-  showLoading('Generating customized CV PDF...');
+  showLoading('Generating customized CV...');
 
   try {
     const fullJobDesc = `Job Title: ${jobTitle}\nCompany: ${companyName}\n\nJob Description:\n${jobDescription}`;
-    const pdfBlob = await api.customizeCv(currentCvId, fullJobDesc);
+    const response = await api.customizeCv(currentCvId, fullJobDesc);
     
-    // Download the PDF
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `customized_cv_${companyName.replace(/\s+/g, '_').toLowerCase()}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Store results
+    currentPdfBase64 = response.pdfContent;
+    latexSourceTextarea.value = response.latexSource;
+    updateEditor(); // Update highlighting
     
-    showSuccess('✨ Your tailored CV is ready and downloaded!');
+    // Persist editor state
+    await storage.saveEditorState(response.latexSource, response.pdfContent);
+    
+    // Show editor section
+    cvEditorSection.classList.remove('hidden');
+    switchToSourceView();
+    cvEditorSection.scrollIntoView({ behavior: 'smooth' });
+    
+    showSuccess('✨ Magic CV generated! You can now view or edit the source.');
   } catch (error) {
     handleApiError(error, 'Failed to customize CV');
   } finally {
     hideLoading();
   }
 });
+
+viewPdfBtn.addEventListener('click', () => {
+  if (!currentPdfBase64) return;
+  
+  const byteCharacters = atob(currentPdfBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  // Note: We don't revoke here because the new tab needs to load it. 
+  // Browser will clean up when the extension process closes or we can manage it.
+});
+
+// Editor Highlighting Logic
+function updateEditor() {
+  let code = latexSourceTextarea.value;
+  if (code[code.length-1] == "\n") {
+    code += " ";
+  }
+  highlightingContent.textContent = code;
+  if ((window as any).Prism) {
+    (window as any).Prism.highlightElement(highlightingContent);
+  }
+  
+  // Persist manual edits
+  storage.saveEditorState(latexSourceTextarea.value, currentPdfBase64);
+}
+
+latexSourceTextarea.addEventListener('input', updateEditor);
+
+latexSourceTextarea.addEventListener('scroll', () => {
+  highlighting.scrollTop = latexSourceTextarea.scrollTop;
+  highlighting.scrollLeft = latexSourceTextarea.scrollLeft;
+});
+
+// CV Editor Views
+btnViewSource.addEventListener('click', switchToSourceView);
+btnViewPreview.addEventListener('click', switchToPreviewView);
+
+function switchToSourceView() {
+  btnViewSource.classList.add('active');
+  btnViewPreview.classList.remove('active');
+  sourceEditor.classList.remove('hidden');
+  pdfMessage.classList.add('hidden');
+  
+  // Style pill buttons
+  btnViewSource.style.background = 'white';
+  btnViewSource.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+  btnViewPreview.style.background = 'transparent';
+  btnViewPreview.style.boxShadow = 'none';
+}
+
+function switchToPreviewView() {
+  btnViewPreview.classList.add('active');
+  btnViewSource.classList.remove('active');
+  sourceEditor.classList.add('hidden');
+  pdfMessage.classList.remove('hidden');
+  
+  // Style pill buttons
+  btnViewPreview.style.background = 'white';
+  btnViewPreview.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+  btnViewSource.style.background = 'transparent';
+  btnViewSource.style.boxShadow = 'none';
+}
+
+// Editor Actions
+recompileBtn.addEventListener('click', async () => {
+  const source = latexSourceTextarea.value.trim();
+  if (!source) return;
+
+  showLoading('Re-compiling PDF...');
+  try {
+    const pdfBlob = await api.compileLatex(source);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      currentPdfBase64 = (reader.result as string).split(',')[1];
+      
+      // Persist state
+      storage.saveEditorState(source, currentPdfBase64);
+      
+      switchToPreviewView();
+      showSuccess('PDF updated!');
+    };
+    reader.readAsDataURL(pdfBlob);
+  } catch (error) {
+    handleApiError(error, 'Compilation failed');
+  } finally {
+    hideLoading();
+  }
+});
+
+downloadTexBtn.addEventListener('click', () => {
+  const source = latexSourceTextarea.value.trim();
+  if (!source) return;
+  const blob = new Blob([source], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cv_${companyNameInput.value.replace(/\s+/g, '_').toLowerCase()}.tex`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+downloadPdfBtn.addEventListener('click', () => {
+  if (!currentPdfBase64) return;
+  downloadPdf(currentPdfBase64, `cv_${companyNameInput.value.replace(/\s+/g, '_').toLowerCase()}.pdf`);
+});
+
+overleafBtn.addEventListener('click', () => {
+  const source = latexSourceTextarea.value.trim();
+  if (!source) return;
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://www.overleaf.com/docs';
+  form.target = '_blank';
+
+  const snip = document.createElement('input');
+  snip.type = 'hidden';
+  snip.name = 'encoded_snip';
+  snip.value = encodeURIComponent(source);
+
+  const fileName = document.createElement('input');
+  fileName.type = 'hidden';
+  fileName.name = 'snip_name';
+  fileName.value = 'Resume.tex';
+
+  form.appendChild(snip);
+  form.appendChild(fileName);
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+});
+
+function downloadPdf(base64: string, fileName: string) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ============================================
 // Job Extraction
@@ -381,6 +600,10 @@ generateBtn.addEventListener('click', async () => {
 
     generatedCoverLetter = response.coverLetter;
     resultContent.textContent = response.coverLetter;
+    
+    // Persist cover letter
+    await storage.saveGeneratedCoverLetter(response.coverLetter);
+    
     resultSection.classList.remove('hidden');
     resultSection.scrollIntoView({ behavior: 'smooth' });
     showSuccess('Cover letter generated!');
