@@ -82,7 +82,12 @@ export type MessageType =
   | 'JOB_DATA_EXTRACTED'
   | 'GENERATE_COVER_LETTER'
   | 'UPLOAD_CV'
-  | 'ERROR';
+  | 'ERROR'
+  | 'CUSTOMIZE_CV_DIRECT'
+  | 'GENERATE_COVER_LETTER_DIRECT'
+  | 'MATCH_CV_DIRECT'
+  | 'COMPILE_LATEX_DIRECT'
+  | 'OPEN_OVERLEAF_DIRECT';
 
 export interface ChromeMessage<T = any> {
   type: MessageType;

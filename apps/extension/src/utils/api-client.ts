@@ -7,7 +7,7 @@ import type {
   CoverLetterResponse, 
   CvParseResponse, 
   CustomizeCvResponse,
-  CompileLatexRequest,
+  MatchCvResponse,
   ApiError 
 } from '../types/index.js';
 import { getUserId, getApiKey } from './storage.js';
@@ -20,12 +20,69 @@ const BASE_URL = 'http://localhost:5012/api/v1';
 export class ApiClientError extends Error {
   constructor(
     public status: number,
-    public apiError: ApiError,
+    public apiError?: ApiError | any,
     message?: string
   ) {
-    super(message || apiError.detail || apiError.title);
+    let errorMsg = message || apiError?.detail || apiError?.title;
+
+    // If no detail provided but we have validation errors, try to extract them
+    if (!errorMsg && apiError?.errors) {
+      if (Array.isArray(apiError.errors)) {
+        errorMsg = apiError.errors[0];
+      } else if (typeof apiError.errors === 'object') {
+        const firstKey = Object.keys(apiError.errors)[0];
+        if (firstKey) {
+          const firstVal = apiError.errors[firstKey];
+          errorMsg = Array.isArray(firstVal) ? firstVal[0] : firstVal;
+        }
+      }
+    }
+
+    super(errorMsg || 'Unknown API Error');
     this.name = 'ApiClientError';
   }
+}
+
+// ... existing code ...
+
+/**
+ * Match CV against job description
+ */
+export async function matchCv(
+  cvId: string,
+  jobDescription: string
+): Promise<MatchCvResponse> {
+  const userId = await getUserId();
+  const apiKey = await getApiKey();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-User-Id': userId,
+    'X-Idempotency-Key': generateIdempotencyKey(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  
+  const response = await fetchWithRetry(`${BASE_URL}/cv/match`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ cvId, jobDescription }),
+  });
+  
+  if (!response.ok) {
+    let error: ApiError;
+    try {
+      error = await response.json();
+    } catch {
+      const text = await response.text();
+      error = { detail: text, title: 'Error', status: response.status, type: 'error' };
+    }
+    throw new ApiClientError(response.status, error);
+  }
+  
+  return await response.json();
 }
 
 /**

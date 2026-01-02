@@ -25,8 +25,15 @@ interface MatchResult {
 let selectedKeywords: string[] = [];
 let currentMatchData: MatchResult | null = null;
 let activeTab: 'match' | 'resume' | 'letter' = 'match';
-let isProcessing = false;
 let isCollapsed = true; // Default to closed
+
+// Per-tab Processing State
+let matchProcessing = false;
+let matchProcessingStep = '';
+let cvProcessing = false;
+let cvProcessingStep = '';
+let letterProcessing = false;
+let letterProcessingStep = '';
 
 // Prompt State
 let cvPromptEnabled = false;
@@ -153,11 +160,22 @@ function renderWidget(container: HTMLElement) {
 }
 
 function renderCurrentTab(): string {
+  // Check if current active tab is processing
+  const isProcessing = 
+    (activeTab === 'match' && matchProcessing) ||
+    (activeTab === 'resume' && cvProcessing) ||
+    (activeTab === 'letter' && letterProcessing);
+  
+  const processingStep = 
+    activeTab === 'match' ? matchProcessingStep :
+    activeTab === 'resume' ? cvProcessingStep :
+    letterProcessingStep;
+
   if (isProcessing) {
     return `
       <div class="processing-view">
         <div class="spinner"></div>
-        <p>AI is working its magic...</p>
+        <p class="processing-text animate-pulse">${processingStep}</p>
       </div>
     `;
   }
@@ -230,14 +248,19 @@ function renderMatchTab(): string {
       
       <div class="ai-insight">
         <span class="badge">AI Insight</span>
-        <p>${analysisSummary}</p>
+        <p>${analysisSummary.replace(/\n/g, '<br/>')}</p>
       </div>
 
       <div style="display: flex; gap: 10px; align-items: center;">
         <button id="ai-reanalyze-btn" class="secondary-btn">Re-analyze</button>
         ${selectedKeywords.length > 0 ? `
           <button id="ai-bridge-cv-btn" class="primary-btn ai-grad animate-fade-in" style="font-size: 12px; padding: 8px 20px; width: auto; margin: 0;">
-            Build Resume with ${selectedKeywords.length} confirmed skills →
+            ${lastGeneratedCv ? 'Update Resume' : 'Build Resume'} with ${selectedKeywords.length} confirmed skills →
+          </button>
+        ` : ''}
+        ${currentMatchData ? `
+          <button id="ai-dismiss-match-btn" class="text-btn danger-hover" style="font-size: 10px; margin-left: auto;">
+             Dismiss Match
           </button>
         ` : ''}
       </div>
@@ -245,52 +268,35 @@ function renderMatchTab(): string {
   `;
 }
 
-// Editor View State
-let editorView: 'source' | 'preview' = 'source';
-
 function renderResumeTab(): string {
   if (isCvReady && lastGeneratedCv) {
     return `
       <div class="editor-view-container animate-fade-in">
-        <div class="editor-header">
-           <span class="status-badge">CV Source Code</span>
-           <div class="editor-tabs">
-             <button class="editor-tab-btn ${editorView === 'source' ? 'active' : ''}" data-view="source">Source</button>
-             <button class="editor-tab-btn ${editorView === 'preview' ? 'active' : ''}" data-view="preview">Preview</button>
-           </div>
+        <div class="editor-header" style="justify-content: space-between; margin-bottom: 10px;">
+           <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">✏️ LaTeX Editor</h4>
+           <button id="widget-dismiss-cv-btn" class="text-btn danger-hover" style="font-size: 10px;">Dismiss</button>
         </div>
 
-        ${editorView === 'source' ? `
-          <div class="widget-editor-container">
-            <pre class="widget-editor-highlighting" id="widget-highlighting"><code class="language-latex" id="widget-highlighting-content"></code></pre>
-            <textarea class="widget-editor-textarea" id="widget-latex-source" spellcheck="false">${lastGeneratedCv.latexSource}</textarea>
-          </div>
-          <div class="widget-editor-actions">
-            <button id="widget-recompile-btn" class="primary-btn ai-grad" style="flex: 2;">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2" style="margin-right: 6px;"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-              Re-compile
-            </button>
-            <button id="widget-download-btn" class="secondary-btn" title="Download PDF">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
-            </button>
-            <button id="widget-overleaf-btn" class="secondary-btn overleaf-btn" title="Open in Overleaf" style="color: white; border: none;">
-               Overleaf
-            </button>
-          </div>
-        ` : `
-          <div class="widget-preview-box">
-             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#5d5bd4" stroke-width="1.5" style="margin-bottom: 16px;">
-               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-             </svg>
-             <p style="font-size: 13px; color: #1e293b; font-weight: 600; margin-bottom: 15px;">PDF Preview Ready</p>
-             <div style="display: flex; gap: 10px;">
-                <button id="widget-view-browser-btn" class="primary-btn ai-grad" style="padding: 8px 16px; font-size: 12px;">View in Browser</button>
-                <button id="widget-internal-download-btn" class="secondary-btn" style="font-size: 12px;">Download PDF</button>
-             </div>
-          </div>
-        `}
-        <p class="hint-text" style="margin-top: 12px;">💡 Changes here are synced with your extension editor.</p>
+        <div class="widget-editor-container">
+          <pre class="widget-editor-highlighting" id="widget-highlighting"><code class="language-latex" id="widget-highlighting-content"></code></pre>
+          <textarea class="widget-editor-textarea" id="widget-latex-source" spellcheck="false">${lastGeneratedCv.latexSource}</textarea>
+        </div>
+        <div class="widget-editor-actions">
+          <button id="widget-recompile-btn" class="primary-btn ai-grad" style="flex: 2;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2" style="margin-right: 6px;"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Re-compile
+          </button>
+          <button id="widget-view-browser-btn" class="secondary-btn" title="Preview in Browser" style="padding: 6px 12px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+          <button id="widget-download-btn" class="secondary-btn" title="Download PDF" style="padding: 6px 12px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+          </button>
+          <button id="widget-overleaf-btn" class="secondary-btn overleaf-btn" title="Open in Overleaf" style="color: white; border: none;">
+             Overleaf
+          </button>
+        </div>
+        <p class="hint-text" style="margin-top: 12px;">💡 Edit LaTeX, preview instantly, or export to Overleaf for full control.</p>
       </div>
     `;
   }
@@ -333,19 +339,37 @@ function renderResumeTab(): string {
 }
 
 function renderLetterTab(): string {
-  if (isLetterReady) {
+  if (isLetterReady && lastGeneratedLetter) {
     return `
-      <div class="success-view animate-fade-in">
-        <div class="success-icon-box">
-          <svg viewBox="0 0 24 24" width="40" height="40" stroke="#8b5cf6" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      <div class="letter-view-container animate-fade-in">
+        <div class="letter-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">📝 Your Cover Letter</h4>
+          <button id="widget-dismiss-cl-btn" class="text-btn danger-hover" style="font-size: 10px;">Dismiss</button>
         </div>
-        <h4>Letter Generated!</h4>
-        <p>Your personalized cover letter is ready and saved to your extension.</p>
         
-        <div class="success-actions">
-          <button id="ai-download-cl-btn" class="primary-btn cl-grad">Download TXT</button>
-          <button id="ai-reset-cl-btn" class="secondary-btn">Regenerate</button>
+        <div class="letter-textarea-wrapper" style="position: relative;">
+          <textarea 
+            id="widget-letter-content" 
+            class="letter-textarea" 
+            spellcheck="true" 
+            style="width: 100%; height: 350px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, system-ui, sans-serif; font-size: 13px; line-height: 1.6; color: #1e293b; resize: vertical; box-sizing: border-box;"
+          >${lastGeneratedLetter.coverLetter}</textarea>
         </div>
+        
+        <div class="letter-actions" style="display: flex; gap: 10px; margin-top: 12px;">
+          <button id="widget-copy-cl-btn" class="primary-btn cl-grad" style="flex: 1;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2" style="margin-right: 6px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy to Clipboard
+          </button>
+          <button id="widget-download-cl-btn" class="secondary-btn" title="Download as TXT" style="padding: 8px 16px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+          </button>
+          <button id="widget-regenerate-cl-btn" class="secondary-btn" style="padding: 8px 16px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
+        </div>
+        
+        <p class="hint-text" style="margin-top: 12px; font-size: 11px; color: #94a3b8; font-style: italic;">💡 Edit the text above before copying or downloading.</p>
       </div>
     `;
   }
@@ -456,12 +480,36 @@ function attachEvents(container: HTMLElement) {
   const clBtn = container.querySelector('#ai-cover-letter-btn');
   if (clBtn) clBtn.addEventListener('click', handleCoverLetter);
 
-  // Bridge Button
+  // Bridge Button (Update/Build Resume)
   const bridgeBtn = container.querySelector('#ai-bridge-cv-btn');
   if (bridgeBtn) bridgeBtn.addEventListener('click', () => {
+    if (lastGeneratedCv) {
+      const confirmUpdate = window.confirm("Regenerating the CV will overwrite your manual edits. Continue?");
+      if (!confirmUpdate) return;
+      isCvReady = false; // Reset to show the 'Generate' screen
+    }
     activeTab = 'resume';
     renderWidget(container);
   });
+
+  // Dismiss Match Button
+  const dismissMatchBtn = container.querySelector('#ai-dismiss-match-btn');
+  if (dismissMatchBtn) {
+    dismissMatchBtn.addEventListener('click', () => {
+       currentMatchData = null;
+       renderWidget(container);
+    });
+  }
+
+  // Dismiss Resume Button
+  const dismissCvBtn = container.querySelector('#widget-dismiss-cv-btn');
+  if (dismissCvBtn) {
+    dismissCvBtn.addEventListener('click', () => {
+       lastGeneratedCv = null;
+       isCvReady = false;
+       renderWidget(container);
+    });
+  }
 
   // Collapse Toggle
   const collapseBtn = container.querySelector('#ai-collapse-btn');
@@ -469,14 +517,6 @@ function attachEvents(container: HTMLElement) {
     isCollapsed = !isCollapsed;
     container.classList.toggle('collapsed', isCollapsed);
     renderWidget(container);
-  });
-
-  // Resume Editor Tab Switching
-  container.querySelectorAll('.editor-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      editorView = (btn as HTMLElement).dataset.view as any;
-      renderWidget(container);
-    });
   });
 
   // Editor Sync and Actions
@@ -502,13 +542,23 @@ function attachEvents(container: HTMLElement) {
   if (recompileBtn) recompileBtn.addEventListener('click', handleWidgetRecompile);
 
   const downloadBtn = container.querySelector('#widget-download-btn');
-  if (downloadBtn) downloadBtn.addEventListener('click', () => {
-      if (lastGeneratedCv) downloadFile(lastGeneratedCv.pdfContent, 'customized_cv.pdf', 'application/pdf');
-  });
-
-  const internalDownloadBtn = container.querySelector('#widget-internal-download-btn');
-  if (internalDownloadBtn) internalDownloadBtn.addEventListener('click', () => {
-      if (lastGeneratedCv) downloadFile(lastGeneratedCv.pdfContent, 'customized_cv.pdf', 'application/pdf');
+  if (downloadBtn) downloadBtn.addEventListener('click', async () => {
+      if (!lastGeneratedCv) return;
+      
+      // Get original CV filename from storage
+      const cvData = await chrome.storage.local.get(['cvFileName']);
+      const originalName = cvData.cvFileName ? cvData.cvFileName.replace(/\.[^/.]+$/, '') : 'resume';
+      
+      // Sanitize job title for filename
+      const jobTitle = lastGeneratedCv.jobTitle || 'tailored';
+      const sanitizedJobTitle = jobTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .substring(0, 50); // Limit length
+      
+      const filename = `${originalName}_${sanitizedJobTitle}.pdf`;
+      downloadFile(lastGeneratedCv.pdfContent, filename, 'application/pdf');
   });
 
   const viewBrowserBtn = container.querySelector('#widget-view-browser-btn');
@@ -525,6 +575,44 @@ function attachEvents(container: HTMLElement) {
 
   const overleafBtn = container.querySelector('#widget-overleaf-btn');
   if (overleafBtn) overleafBtn.addEventListener('click', handleWidgetOverleaf);
+
+  // Cover Letter Actions
+  const copyClBtn = container.querySelector('#widget-copy-cl-btn');
+  if (copyClBtn) copyClBtn.addEventListener('click', handleCopyLetter);
+
+  const downloadClBtn = container.querySelector('#widget-download-cl-btn');
+  if (downloadClBtn) downloadClBtn.addEventListener('click', () => {
+    if (!lastGeneratedLetter) return;
+    const textarea = container.querySelector('#widget-letter-content') as HTMLTextAreaElement;
+    const content = textarea ? textarea.value : lastGeneratedLetter.coverLetter;
+    
+    // Sanitize job title for filename
+    const jobTitle = lastGeneratedLetter.jobTitle || 'cover_letter';
+    const sanitizedJobTitle = jobTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .substring(0, 50);
+    
+    const filename = `cover_letter_${sanitizedJobTitle}.txt`;
+    downloadFile(btoa(unescape(encodeURIComponent(content))), filename, 'text/plain');
+  });
+
+  const regenerateClBtn = container.querySelector('#widget-regenerate-cl-btn');
+  if (regenerateClBtn) regenerateClBtn.addEventListener('click', () => {
+    if (window.confirm('Regenerate the cover letter? Your current edits will be lost.')) {
+      lastGeneratedLetter = null;
+      isLetterReady = false;
+      renderWidget(container);
+    }
+  });
+
+  const dismissClBtn = container.querySelector('#widget-dismiss-cl-btn');
+  if (dismissClBtn) dismissClBtn.addEventListener('click', () => {
+    lastGeneratedLetter = null;
+    isLetterReady = false;
+    renderWidget(container);
+  });
 }
 
 function updateWidgetEditor(container: HTMLElement) {
@@ -571,8 +659,18 @@ async function handleWidgetRecompile() {
   if (!textarea || !lastGeneratedCv) return;
 
   const source = textarea.value.trim();
-  isProcessing = true;
-  renderWidget(container);
+  cvProcessing = true;
+  
+  const steps = [
+    { text: 'Validating LaTeX syntax...', duration: 200 },
+    { text: 'Compiling with pdfLaTeX...', duration: 0 }
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    cvProcessingStep = steps[i].text;
+    renderWidget(container);
+    if (i < steps.length - 1) await new Promise(r => setTimeout(r, steps[i].duration));
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({ 
@@ -583,7 +681,6 @@ async function handleWidgetRecompile() {
     if (response?.type === 'SUCCESS') {
       lastGeneratedCv.pdfContent = response.payload.pdfContent;
       lastGeneratedCv.latexSource = source;
-      editorView = 'preview';
       
       // Update persistent storage
       await chrome.storage.local.set({
@@ -599,7 +696,7 @@ async function handleWidgetRecompile() {
   } catch (err) {
     alert('Error connecting to compiler.');
   } finally {
-    isProcessing = false;
+    cvProcessing = false;
     renderWidget(container);
   }
 }
@@ -614,6 +711,33 @@ function handleWidgetOverleaf() {
     type: 'OPEN_OVERLEAF_DIRECT',
     payload: { latexSource: source }
   });
+}
+
+async function handleCopyLetter() {
+  const container = document.getElementById('ai-copilot-container')!;
+  const textarea = container.querySelector('#widget-letter-content') as HTMLTextAreaElement;
+  const copyBtn = container.querySelector('#widget-copy-cl-btn');
+  
+  if (!textarea || !copyBtn) return;
+
+  try {
+    await navigator.clipboard.writeText(textarea.value);
+    
+    // Visual feedback
+    const originalHTML = copyBtn.innerHTML;
+    copyBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2" style="margin-right: 6px;"><path d="M20 6L9 17l-5-5"></path></svg>
+      Copied!
+    `;
+    copyBtn.classList.add('success-pulse');
+    
+    setTimeout(() => {
+      copyBtn.innerHTML = originalHTML;
+      copyBtn.classList.remove('success-pulse');
+    }, 2000);
+  } catch (err) {
+    alert('Failed to copy to clipboard. Please copy manually.');
+  }
 }
 
 function downloadFile(base64: string, fileName: string, type: string) {
@@ -638,8 +762,21 @@ async function handleAnalyze() {
   const jobData = extractJobData();
   if (!jobData) return;
 
-  isProcessing = true;
-  renderWidget(document.getElementById('ai-copilot-container')!);
+  matchProcessing = true;
+  const container = document.getElementById('ai-copilot-container')!;
+  
+  const steps = [
+    { text: 'Extracting job requirements...', duration: 300 },
+    { text: 'Loading your CV data...', duration: 200 },
+    { text: 'Analyzing with AI...', duration: 2000 },
+    { text: 'Calculating match score...', duration: 0 }
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    matchProcessingStep = steps[i].text;
+    renderWidget(container);
+    if (i < steps.length - 1) await new Promise(r => setTimeout(r, steps[i].duration));
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({ 
@@ -655,8 +792,8 @@ async function handleAnalyze() {
   } catch (err) {
     alert('Failed to connect to Extension. Please refresh page.');
   } finally {
-    isProcessing = false;
-    renderWidget(document.getElementById('ai-copilot-container')!);
+    matchProcessing = false;
+    renderWidget(container);
   }
 }
 
@@ -666,8 +803,22 @@ async function handleMagicCV() {
 
   const customPrompt = (document.getElementById('cv-custom-prompt') as HTMLTextAreaElement)?.value;
   
-  isProcessing = true;
-  renderWidget(document.getElementById('ai-copilot-container')!);
+  cvProcessing = true;
+  const container = document.getElementById('ai-copilot-container')!;
+  
+  const steps = [
+    { text: 'Extracting job requirements...', duration: 300 },
+    { text: 'Loading your CV...', duration: 200 },
+    { text: 'Tailoring content with AI...', duration: 2500 },
+    { text: 'Injecting keywords...', duration: 300 },
+    { text: 'Compiling to PDF...', duration: 0 }
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    cvProcessingStep = steps[i].text;
+    renderWidget(container);
+    if (i < steps.length - 1) await new Promise(r => setTimeout(r, steps[i].duration));
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({ 
@@ -683,14 +834,15 @@ async function handleMagicCV() {
     if (response?.type === 'SUCCESS') {
         isCvReady = true;
         lastGeneratedCv = response.payload;
+        lastGeneratedCv.jobTitle = jobData.jobTitle; // Store for filename
     } else {
         alert(response?.error || 'Generation failed.');
     }
   } catch (err) {
     alert('Error generating CV.');
   } finally {
-    isProcessing = false;
-    renderWidget(document.getElementById('ai-copilot-container')!);
+    cvProcessing = false;
+    renderWidget(container);
   }
 }
 
@@ -700,8 +852,21 @@ async function handleCoverLetter() {
 
   const customPrompt = (document.getElementById('cl-custom-prompt') as HTMLTextAreaElement)?.value;
   
-  isProcessing = true;
-  renderWidget(document.getElementById('ai-copilot-container')!);
+  letterProcessing = true;
+  const container = document.getElementById('ai-copilot-container')!;
+  
+  const steps = [
+    { text: 'Extracting job details...', duration: 300 },
+    { text: 'Analyzing your CV...', duration: 200 },
+    { text: 'Crafting personalized letter with AI...', duration: 2500 },
+    { text: 'Finalizing content...', duration: 0 }
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    letterProcessingStep = steps[i].text;
+    renderWidget(container);
+    if (i < steps.length - 1) await new Promise(r => setTimeout(r, steps[i].duration));
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({ 
@@ -716,14 +881,15 @@ async function handleCoverLetter() {
     if (response?.type === 'SUCCESS') {
         isLetterReady = true;
         lastGeneratedLetter = response.payload;
+        lastGeneratedLetter.jobTitle = jobData.jobTitle; // Store for filename
     } else {
         alert(response?.error || 'Generation failed.');
     }
   } catch (err) {
     alert('Error generating Cover Letter.');
   } finally {
-    isProcessing = false;
-    renderWidget(document.getElementById('ai-copilot-container')!);
+    letterProcessing = false;
+    renderWidget(container);
   }
 }
 
@@ -982,6 +1148,15 @@ function injectStyles() {
     @keyframes spin { to { transform: rotate(360deg); } }
     .processing-view { text-align: center; padding: 20px; }
     .processing-view p { font-size: 13px; color: #64748b; }
+    .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .success-pulse { animation: successPulse 0.4s ease; }
+    @keyframes successPulse { 
+      0% { transform: scale(1); } 
+      50% { transform: scale(1.05); background: #10b981; } 
+      100% { transform: scale(1); } 
+    }
 
     /* Success View */
     .success-view { text-align: center; padding: 10px 0; }

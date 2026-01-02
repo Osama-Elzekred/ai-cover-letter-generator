@@ -2,13 +2,14 @@
 // Background Service Worker
 // ============================================
 
-interface ChromeMessage<T = any> {
-  type: string;
-  payload?: T;
-  error?: string;
-}
 
-const BASE_URL = 'http://localhost:5012/api/v1';
+import { 
+  customizeCv, 
+  generateCoverLetter, 
+  matchCv, 
+  compileLatex 
+} from '../utils/api-client.js';
+import type { ChromeMessage } from '../types/index.js';
 
 /**
  * Handle messages from popup and content scripts
@@ -16,6 +17,8 @@ const BASE_URL = 'http://localhost:5012/api/v1';
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
   console.log('[Service Worker] Received message:', message.type);
 
+  // Return true to indicate we will send a response asynchronously
+  
   if (message.type === 'CUSTOMIZE_CV_DIRECT') {
     handleCustomizeCv(message.payload, sendResponse);
     return true; 
@@ -46,16 +49,14 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 });
 
 /**
- * Common logic to get auth details from storage
+ * Helper to get CV ID from storage
  */
-async function getAuthDetails() {
-  const data = await chrome.storage.local.get(['cvId', 'userId', 'apiKey']);
-  if (!data.cvId) throw new Error('No CV found. Please upload your CV in the extension first.');
-  return {
-    cvId: data.cvId,
-    userId: data.userId || 'default-user',
-    apiKey: data.apiKey
-  };
+async function getCvId(): Promise<string> {
+   const data = await chrome.storage.local.get(['cvId']);
+   if (!data.cvId) {
+     throw new Error('No CV found. Please upload your CV in the extension first.');
+   }
+   return data.cvId;
 }
 
 /**
@@ -63,7 +64,7 @@ async function getAuthDetails() {
  */
 async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void) {
   try {
-    const { cvId, userId, apiKey } = await getAuthDetails();
+    const cvId = await getCvId();
     const fullJobDesc = `Job Title: ${jobData.jobTitle}\nCompany: ${jobData.companyName}\n\nJob Description:\n${jobData.jobDescription}`;
     
     // Save job data to storage so popup can sync
@@ -75,28 +76,11 @@ async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void)
       }
     });
 
-    const headers: any = {
-      'Content-Type': 'application/json',
-      'X-User-Id': userId,
-      'X-Idempotency-Key': crypto.randomUUID(),
-    };
-    if (apiKey) headers['X-Api-Key'] = apiKey;
-
-    const response = await fetch(`${BASE_URL}/cv/customize`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ 
-        cvId, 
-        jobDescription: fullJobDesc,
-        selectedKeywords: jobData.selectedKeywords,
-        customPromptTemplate: jobData.customPromptTemplate,
-        promptMode: jobData.promptMode || 0 
-      })
+    const result = await customizeCv(cvId, fullJobDesc, {
+      selectedKeywords: jobData.selectedKeywords,
+      customPromptTemplate: jobData.customPromptTemplate,
+      promptMode: jobData.promptMode || 0
     });
-
-    if (!response.ok) throw new Error('API failed with status ' + response.status);
-
-    const result = await response.json();
     
     // Persist editor state for the popup
     await chrome.storage.local.set({
@@ -118,7 +102,7 @@ async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void)
  */
 async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) => void) {
   try {
-    const { cvId, userId, apiKey } = await getAuthDetails();
+    const cvId = await getCvId();
     const fullJobDesc = `Job Title: ${jobData.jobTitle}\nCompany: ${jobData.companyName}\n\nJob Description:\n${jobData.jobDescription}`;
     
     // Save job data to storage so popup can sync
@@ -129,33 +113,18 @@ async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) 
         jobDescription: jobData.jobDescription
       }
     });
-
-    const headers: any = {
-      'Content-Type': 'application/json',
-      'X-User-Id': userId,
-      'X-Idempotency-Key': crypto.randomUUID(),
-    };
-    if (apiKey) headers['X-Api-Key'] = apiKey;
-
-    const response = await fetch(`${BASE_URL}/cover-letters/generate`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ 
-        cvId, 
-        jobDescription: fullJobDesc, 
-        customPromptTemplate: jobData.customPromptTemplate,
-        promptMode: jobData.promptMode || 1 
-      }) 
+    
+    const result = await generateCoverLetter({
+      cvId,
+      jobDescription: fullJobDesc,
+      customPromptTemplate: jobData.customPromptTemplate,
+      promptMode: jobData.promptMode || 1
     });
-
-    if (!response.ok) throw new Error('API failed with status ' + response.status);
-
-    const data = await response.json();
     
     // Persist cover letter for the popup
-    await chrome.storage.local.set({ generatedCoverLetter: data.coverLetter });
+    await chrome.storage.local.set({ generatedCoverLetter: result.coverLetter });
 
-    sendResponse({ type: 'SUCCESS', payload: data });
+    sendResponse({ type: 'SUCCESS', payload: result });
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }
@@ -166,26 +135,11 @@ async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) 
  */
 async function handleMatchCv(jobData: any, sendResponse: (msg: any) => void) {
   try {
-    const { cvId, userId, apiKey } = await getAuthDetails();
+    const cvId = await getCvId();
     const fullJobDesc = `Job Title: ${jobData.jobTitle}\nCompany: ${jobData.companyName}\n\nJob Description:\n${jobData.jobDescription}`;
     
-    const headers: any = {
-      'Content-Type': 'application/json',
-      'X-User-Id': userId,
-      'X-Idempotency-Key': crypto.randomUUID(),
-    };
-    if (apiKey) headers['X-Api-Key'] = apiKey;
-
-    const response = await fetch(`${BASE_URL}/cv/match`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ cvId, jobDescription: fullJobDesc })
-    });
-
-    if (!response.ok) throw new Error('API failed with status ' + response.status);
-
-    const data = await response.json();
-    sendResponse({ type: 'SUCCESS', payload: data });
+    const result = await matchCv(cvId, fullJobDesc);
+    sendResponse({ type: 'SUCCESS', payload: result });
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }
@@ -196,24 +150,9 @@ async function handleMatchCv(jobData: any, sendResponse: (msg: any) => void) {
  */
 async function handleCompileLatex(payload: any, sendResponse: (msg: any) => void) {
   try {
-    const { userId, apiKey } = await getAuthDetails();
+    // compileLatex returns a Blob, we need to convert it to base64 for messaging
+    const blob = await compileLatex(payload.latexSource);
     
-    const headers: any = {
-      'Content-Type': 'application/json',
-      'X-User-Id': userId,
-      'X-Idempotency-Key': crypto.randomUUID(),
-    };
-    if (apiKey) headers['X-Api-Key'] = apiKey;
-
-    const response = await fetch(`${BASE_URL}/cv/compile`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ latexSource: payload.latexSource })
-    });
-
-    if (!response.ok) throw new Error('Compilation failed. Check LaTeX syntax.');
-
-    const blob = await response.blob();
     const reader = new FileReader();
     reader.onloadend = () => {
       sendResponse({ 
