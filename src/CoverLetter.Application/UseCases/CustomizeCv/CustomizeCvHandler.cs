@@ -18,6 +18,7 @@ public sealed class CustomizeCvHandler(
     ICvRepository cvRepository,
     IUserContext userContext,
     IPromptRegistry promptRegistry,
+    ICustomPromptService customPromptService,
     ILogger<CustomizeCvHandler> logger)
     : IRequestHandler<CustomizeCvCommand, Result<CustomizeCvResult>>
 {
@@ -50,20 +51,34 @@ public sealed class CustomizeCvHandler(
                 { "ConfirmedSkills", confirmedSkills }
             };
 
+            // Fetch custom prompt from settings if exists
+            var savedCustomPrompt = await customPromptService.GetUserPromptAsync(PromptType.CvCustomization, cancellationToken);
+
             string finalPrompt;
-            if (request.PromptMode == PromptMode.Override && !string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+
+            // Priority: request CustomPromptTemplate > saved custom prompt > default
+            var effectiveCustomPrompt = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate)
+                ? request.CustomPromptTemplate
+                : savedCustomPrompt;
+
+            if (request.PromptMode == PromptMode.Override && !string.IsNullOrWhiteSpace(effectiveCustomPrompt))
             {
                 // Simple override with variable replacement
-                finalPrompt = variables.Aggregate(request.CustomPromptTemplate, (current, variable) => 
+                finalPrompt = variables.Aggregate(effectiveCustomPrompt, (current, variable) =>
                     current.Replace("{" + variable.Key + "}", variable.Value));
             }
             else
             {
-                finalPrompt = promptRegistry.GetPrompt(PromptType.CvCustomization, variables);
-                
-                if (!string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+                var promptResult = promptRegistry.GetPrompt(PromptType.CvCustomization, variables);
+                if (promptResult.IsFailure)
                 {
-                    finalPrompt += $"\n\n### ADDITIONAL USER INSTRUCTIONS:\n{request.CustomPromptTemplate}";
+                    return Result<CustomizeCvResult>.Failure(promptResult.Errors, promptResult.Type);
+                }
+                finalPrompt = promptResult.Value!;
+
+                if (!string.IsNullOrWhiteSpace(effectiveCustomPrompt))
+                {
+                    finalPrompt += $"\n\n### ADDITIONAL USER INSTRUCTIONS:\n{effectiveCustomPrompt}";
                 }
             }
 
@@ -75,7 +90,7 @@ public sealed class CustomizeCvHandler(
 
             logger.LogInformation("Generating customized LaTeX for CV {CvId}", request.CvId);
             var llmResponse = await llmService.GenerateAsync(finalPrompt, llmOptions, cancellationToken);
-            
+
             var latexSource = ExtractLatexFromResponse(llmResponse.Content);
 
             // 3. Compile LaTeX to PDF (unless LaTeX only requested)
@@ -141,11 +156,11 @@ public sealed class CustomizeCvHandler(
                 .Replace("\\&", "&") // Common escapes that might be doubled
                 .Replace("\\#", "#")
                 .Replace("\\$", "$");
-                
+
             // Note: Since we are unescaping \\ to \, we must be careful with legitimate LaTeX line breaks \\.
             // If the AI sent \\\\, it becomes \\ (correct LaTeX break).
         }
-        
+
         return content.Trim();
     }
 }

@@ -2,13 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Text.RegularExpressions;
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Domain.Common;
+using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Application.Common.Services;
 
-public sealed class PromptRegistry : IPromptRegistry
+public sealed partial class PromptRegistry : IPromptRegistry
 {
-    private static readonly string DefaultCvLatex = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Templates", "DefaultCv.tex"));
+    private readonly string _defaultCvLatex;
+    private readonly ILogger<PromptRegistry> _logger;
 
     private readonly Dictionary<PromptType, string> _templates = new()
     {
@@ -35,13 +39,28 @@ CANDIDATE'S CV:
 
 Write the cover letter now:",
 
-        [PromptType.CvCustomization] = @"
+        [PromptType.CvCustomization] = """
 Generate a tailored CV in LaTeX that compiles on Overleaf using pdfLaTeX.
 Output ONLY raw LaTeX (no JSON, no code fences, no quotes).
 Do NOT escape backslashes or newlines (no \\documentclass, no \n).
 Use \documentclass{{article}} only; no external .cls or custom files.
 
-### CRITICAL CUSTOMIZATION RULES:
+### CRITICAL LATEX RULES:
+1. **ESCAPE SPECIAL CHARACTERS**: You MUST escape reserved LaTeX characters if they appear in text (e.g., #, $, %, &, _).
+   - Write "C#" as "C\#" (NOT "C#")
+   - Write ".NET" as ".NET" (Safe)
+   - Write "C++" as "C++" (Safe)
+   - Write "%" as "\%"
+   - Write "&" as "\&"
+   - Write "_" as "\_"
+2. **NO UNICODE/NON-ASCII CHARACTERS**: Use ONLY ASCII characters (a-z, A-Z, 0-9). 
+   - Convert Arabic/Chinese/Cyrillic to Latin transliteration
+   - Example: "حالا" → "Hala", "北京" → "Beijing", "Москва" → "Moscow"
+   - Use English equivalents for company/location names when possible
+3. **NO MARKDOWN**: Do not use Markdown styling like **bold** or *italic*. Use \textbf{} and \textit{}.
+4. **NO WEB LINKS**: Wrap all URLs in \url{...}.
+
+### CUSTOMIZATION INSTRUCTIONS:
 1. **KEYWORD INJECTION**: Scan the Job Description for technical skills and weave them into the CV.
 2. **ACTIVE REPHRASING**: Rephrase bullet points to show how past experience solves the needs of the Job Description.
 3. **OBJECTIVE REWRITE**: Pitch the candidate specifically for the role.
@@ -59,7 +78,8 @@ CANDIDATE INFORMATION:
 LATEX STRUCTURE TEMPLATE:
 {LatexTemplate}
 
-Write the customized raw LaTeX source now:",
+Write the customized raw LaTeX source now:
+""",
 
         [PromptType.MatchAnalysis] = @"
 Analyze the compatibility between the following CV and Job Description.
@@ -78,18 +98,68 @@ CV CONTENT:
 Output only valid JSON:"
     };
 
-    public string GetPrompt(PromptType type, Dictionary<string, string> variables)
+    // Track required variables for each prompt type
+    private readonly Dictionary<PromptType, HashSet<string>> _requiredVariables = new()
+    {
+        [PromptType.CoverLetter] = new() { "JobDescription", "CvText" },
+        [PromptType.CvCustomization] = new() { "JobDescription", "CvText", "ConfirmedSkills", "LatexTemplate" },
+        [PromptType.MatchAnalysis] = new() { "JobDescription", "CvText" }
+    };
+
+    public PromptRegistry(ILogger<PromptRegistry> logger)
+    {
+        _logger = logger;
+
+        // Safely load default CV template with error handling
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", "DefaultCv.tex");
+        try
+        {
+            _defaultCvLatex = File.ReadAllText(templatePath);
+            _logger.LogDebug("Loaded default CV template from {Path}", templatePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load default CV template from {Path}", templatePath);
+            throw new InvalidOperationException($"Required template file not found: {templatePath}", ex);
+        }
+    }
+
+    public Result<string> GetPrompt(PromptType type, Dictionary<string, string> variables)
     {
         if (!_templates.TryGetValue(type, out var template))
-            throw new ArgumentException($"Template for {type} not found.");
+            return Result<string>.Failure($"Template for {type} not found.", ResultType.NotFound);
 
         // Inject default LaTeX if not provided for CV customization
         if (type == PromptType.CvCustomization && !variables.ContainsKey("LatexTemplate"))
         {
-            variables["LatexTemplate"] = DefaultCvLatex;
+            variables["LatexTemplate"] = _defaultCvLatex;
         }
 
-        return variables.Aggregate(template, (current, variable) => 
+        var result = variables.Aggregate(template, (current, variable) =>
             current.Replace("{" + variable.Key + "}", variable.Value));
+
+        return Result<string>.Success(result);
+    }
+
+    public Result<string> GetRawTemplate(PromptType type)
+    {
+        if (!_templates.TryGetValue(type, out var template))
+            return Result<string>.Failure($"Template for {type} not found.", ResultType.NotFound);
+
+        // For CV customization, inject the default LaTeX template placeholder
+        if (type == PromptType.CvCustomization)
+        {
+            template = template.Replace("{LatexTemplate}", _defaultCvLatex);
+        }
+
+        return Result<string>.Success(template);
+    }
+
+    public Result<IReadOnlyCollection<string>> GetRequiredVariables(PromptType type)
+    {
+        if (!_requiredVariables.TryGetValue(type, out var variables))
+            return Result<IReadOnlyCollection<string>>.Failure($"Variables for {type} not found.", ResultType.NotFound);
+
+        return Result<IReadOnlyCollection<string>>.Success(variables);
     }
 }

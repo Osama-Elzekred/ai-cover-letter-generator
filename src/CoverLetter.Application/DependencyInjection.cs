@@ -40,8 +40,10 @@ public static class DependencyInjection
         // 3. Validate request
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
-        // Register Prompt Registry
+        // Register Application Services
         services.AddSingleton<IPromptRegistry, PromptRegistry>();
+        services.AddSingleton<ICacheKeyBuilder, CacheKeyBuilder>();
+        services.AddScoped<ICustomPromptService, CustomPromptService>();
 
         return services;
     }

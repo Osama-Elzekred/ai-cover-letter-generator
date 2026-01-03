@@ -131,6 +131,7 @@ var v1Routes = app.MapGroup("/api/v{version:apiVersion}")
 v1Routes.MapCoverLetterEndpoints();
 v1Routes.MapCvEndpoints();
 v1Routes.MapSettingsEndpoints();
+v1Routes.MapPromptsEndpoints();
 
 // ========== Startup Information ==========
 if (app.Environment.IsDevelopment())

@@ -17,6 +17,7 @@ public sealed class GenerateCoverLetterHandler(
     ICvRepository cvRepository,
     IUserContext userContext,
     IPromptRegistry promptRegistry,
+    ICustomPromptService customPromptService,
     ILogger<GenerateCoverLetterHandler> logger)
     : IRequestHandler<GenerateCoverLetterCommand, Result<GenerateCoverLetterResult>>
 {
@@ -33,8 +34,11 @@ public sealed class GenerateCoverLetterHandler(
         return Result<GenerateCoverLetterResult>.Failure(cvText.Errors, cvText.Type);
       }
 
+      // Fetch saved custom prompt from settings if available
+      var savedCustomPrompt = await customPromptService.GetUserPromptAsync(PromptType.CoverLetter, cancellationToken);
+
       // Build prompt based on mode (Append or Override)
-      var prompt = BuildPrompt(request, cvText.Value);
+      var prompt = BuildPrompt(request, cvText.Value, savedCustomPrompt);
 
       // Check if user has saved their own API key (BYOK pattern)
       var userApiKey = userContext.GetUserApiKey();
@@ -71,8 +75,9 @@ public sealed class GenerateCoverLetterHandler(
 
   /// <summary>
   /// Builds the final prompt based on the prompt mode (Append or Override).
+  /// Priority: request.CustomPromptTemplate > savedCustomPrompt > default
   /// </summary>
-  private string BuildPrompt(GenerateCoverLetterCommand request, string cvText)
+  private string BuildPrompt(GenerateCoverLetterCommand request, string cvText, string? savedCustomPrompt)
   {
     var variables = new Dictionary<string, string>
     {
@@ -80,23 +85,30 @@ public sealed class GenerateCoverLetterHandler(
       { "CvText", cvText }
     };
 
-    if (string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+    // Determine effective custom prompt (request overrides saved setting)
+    var effectiveCustomPrompt = request.CustomPromptTemplate ?? savedCustomPrompt;
+
+    if (string.IsNullOrWhiteSpace(effectiveCustomPrompt))
     {
-      return promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
+      var promptResult = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
+      return promptResult.IsSuccess ? promptResult.Value! : string.Empty;
     }
 
     if (request.PromptMode == PromptMode.Override)
     {
       // Override mode - use only custom template
       // Still allow for variable replacement if they use {JobDescription} or {CvText}
-      var template = request.CustomPromptTemplate;
-      return variables.Aggregate(template, (current, variable) => 
+      var template = effectiveCustomPrompt;
+      return variables.Aggregate(template, (current, variable) =>
           current.Replace("{" + variable.Key + "}", variable.Value));
     }
 
     // Append mode (default) - combine default + custom
-    var basePrompt = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
-    return $"{basePrompt}\n\nADDITIONAL INSTRUCTIONS:\n{request.CustomPromptTemplate}";
+    var basePromptResult = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
+    if (basePromptResult.IsFailure)
+      return string.Empty;
+
+    return $"{basePromptResult.Value}\n\nADDITIONAL INSTRUCTIONS:\n{effectiveCustomPrompt}";
   }
 
   /// <summary>

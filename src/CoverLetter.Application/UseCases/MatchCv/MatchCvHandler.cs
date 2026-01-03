@@ -14,6 +14,7 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
     private readonly ILlmService _llmService;
     private readonly IUserContext _userContext;
     private readonly IPromptRegistry _promptRegistry;
+    private readonly ICustomPromptService _customPromptService;
     private readonly ILogger<MatchCvHandler> _logger;
 
     public MatchCvHandler(
@@ -21,12 +22,14 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
         ILlmService llmService,
         IUserContext userContext,
         IPromptRegistry promptRegistry,
+        ICustomPromptService customPromptService,
         ILogger<MatchCvHandler> logger)
     {
         _cvRepository = cvRepository;
         _llmService = llmService;
         _userContext = userContext;
         _promptRegistry = promptRegistry;
+        _customPromptService = customPromptService;
         _logger = logger;
     }
 
@@ -41,13 +44,26 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
             }
             var cvDocument = cvResult.Value!;
 
+            // Fetch saved custom prompt from settings if available
+            var savedCustomPrompt = await _customPromptService.GetUserPromptAsync(PromptType.MatchAnalysis, cancellationToken);
+
             var variables = new Dictionary<string, string>
             {
                 { "JobDescription", request.JobDescription },
                 { "CvText", cvDocument.ExtractedText }
             };
 
-            var prompt = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
+            var promptResult = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
+            if (promptResult.IsFailure)
+            {
+                return Result<MatchCvResult>.Failure(promptResult.Errors, promptResult.Type);
+            }
+
+            string prompt = promptResult.Value!;
+            if (!string.IsNullOrWhiteSpace(savedCustomPrompt))
+            {
+                prompt += $"\n\nADDITIONAL INSTRUCTIONS:\n{savedCustomPrompt}";
+            }
 
             var options = new LlmGenerationOptions(
                 SystemMessage: "You are an expert recruiter AI. Analyze job compatibility accurately.",

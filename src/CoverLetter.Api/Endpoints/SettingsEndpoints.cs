@@ -1,4 +1,5 @@
 using CoverLetter.Api.Extensions;
+using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Domain.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -37,6 +38,27 @@ public static class SettingsEndpoints
         .Produces<DeleteApiKeyResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+    // Custom Prompt endpoints
+    group.MapPost("/prompts/{promptType}", SaveCustomPrompt)
+        .WithSummary("Save custom prompt for CV/Letter/Match")
+        .WithDescription("Store a custom prompt for cv-customization, cover-letter, or match-analysis. Requires X-User-Id header.")
+        .Produces<SavePromptResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+    group.MapGet("/prompts/{promptType}", GetCustomPrompt)
+        .WithSummary("Get custom prompt")
+        .WithDescription("Retrieve a custom prompt for the specified type. Returns 404 if none saved.")
+        .Produces<CustomPromptResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+    group.MapDelete("/prompts/{promptType}", DeleteCustomPrompt)
+        .WithSummary("Delete custom prompt")
+        .WithDescription("Remove custom prompt and revert to default.")
+        .Produces<DeletePromptResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
     return routes;
   }
 
@@ -47,7 +69,8 @@ public static class SettingsEndpoints
   private static IResult SaveGroqApiKey(
       [FromBody] SaveApiKeyRequest request,
       HttpContext httpContext,
-      IMemoryCache cache)
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
 
@@ -63,7 +86,7 @@ public static class SettingsEndpoints
           "Invalid Groq API key format. Keys should start with 'gsk_'.").ToHttpResult();
     }
 
-    var cacheKey = GetCacheKey(userId);
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
     cache.Set(cacheKey, request.ApiKey, new MemoryCacheEntryOptions
     {
       AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration,
@@ -85,11 +108,12 @@ public static class SettingsEndpoints
   /// </summary>
   private static IResult CheckGroqApiKey(
       HttpContext httpContext,
-      IMemoryCache cache)
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
 
-    var cacheKey = GetCacheKey(userId);
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
     var hasKey = cache.TryGetValue<string>(cacheKey, out var apiKey);
 
     if (!hasKey || string.IsNullOrWhiteSpace(apiKey))
@@ -120,11 +144,12 @@ public static class SettingsEndpoints
   /// </summary>
   private static IResult DeleteGroqApiKey(
       HttpContext httpContext,
-      IMemoryCache cache)
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
 
-    var cacheKey = GetCacheKey(userId);
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
     cache.Remove(cacheKey);
 
     var response = new DeleteApiKeyResponse(
@@ -135,36 +160,137 @@ public static class SettingsEndpoints
     return Result<DeleteApiKeyResponse>.Success(response).ToHttpResult();
   }
 
-  private static string GetCacheKey(string userId) => $"user:{userId}:groq-api-key";
+  //===========================================
+  // Custom Prompt Handlers
+  //===========================================
+  // Note: Users can customize full prompts including LaTeX templates
+  // via the cv-customization prompt type rather than separate template storage
+
+  private static IResult SaveCustomPrompt(
+      string promptType,
+      [FromBody] SaveCustomPromptRequest request,
+      HttpContext httpContext,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
+  {
+    var userId = httpContext.GetUserId();
+    if (string.IsNullOrEmpty(userId))
+      return Result<SavePromptResponse>.Unauthorized("User ID is required").ToHttpResult();
+
+    if (string.IsNullOrWhiteSpace(request.Prompt))
+      return Result<SavePromptResponse>.ValidationError("Prompt cannot be empty").ToHttpResult();
+
+    // Validate prompt type
+    var allowedTypes = new[] { "cv-customization", "cover-letter", "match-analysis" };
+    if (!allowedTypes.Contains(promptType))
+      return Result<SavePromptResponse>.ValidationError(
+          $"Invalid prompt type. Allowed: {string.Join(", ", allowedTypes)}").ToHttpResult();
+
+    // Map kebab-case to PromptType enum
+    var promptTypeEnum = promptType switch
+    {
+      "cv-customization" => PromptType.CvCustomization,
+      "cover-letter" => PromptType.CoverLetter,
+      "match-analysis" => PromptType.MatchAnalysis,
+      _ => (PromptType?)null
+    };
+
+    if (promptTypeEnum == null)
+      return Result<SavePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
+
+    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
+    cache.Set(cacheKey, request.Prompt, ApiKeyCacheDuration);
+
+    var response = new SavePromptResponse(
+        Message: $"Custom prompt for {promptType} saved successfully",
+        UserId: userId,
+        PromptType: promptType,
+        PromptLength: request.Prompt.Length,
+        ExpiresIn: $"{ApiKeyCacheDuration.TotalDays} days"
+    );
+
+    return Result<SavePromptResponse>.Success(response).ToHttpResult();
+  }
+
+  private static IResult GetCustomPrompt(
+      string promptType,
+      HttpContext httpContext,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
+  {
+    var userId = httpContext.GetUserId();
+    if (string.IsNullOrEmpty(userId))
+      return Result<CustomPromptResponse>.Unauthorized("User ID is required").ToHttpResult();
+
+    var promptTypeEnum = promptType switch
+    {
+      "cv-customization" => PromptType.CvCustomization,
+      "cover-letter" => PromptType.CoverLetter,
+      "match-analysis" => PromptType.MatchAnalysis,
+      _ => (PromptType?)null
+    };
+
+    if (promptTypeEnum == null)
+      return Result<CustomPromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
+
+    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
+    if (cache.TryGetValue<string>(cacheKey, out var prompt) && !string.IsNullOrEmpty(prompt))
+    {
+      var response = new CustomPromptResponse(
+          PromptType: promptType,
+          Prompt: prompt,
+          PromptLength: prompt.Length
+      );
+      return Result<CustomPromptResponse>.Success(response).ToHttpResult();
+    }
+
+    return Result<CustomPromptResponse>.NotFound($"No custom prompt found for {promptType}").ToHttpResult();
+  }
+
+  private static IResult DeleteCustomPrompt(
+      string promptType,
+      HttpContext httpContext,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
+  {
+    var userId = httpContext.GetUserId();
+    if (string.IsNullOrEmpty(userId))
+      return Result<DeletePromptResponse>.Unauthorized("User ID is required").ToHttpResult();
+
+    var promptTypeEnum = promptType switch
+    {
+      "cv-customization" => PromptType.CvCustomization,
+      "cover-letter" => PromptType.CoverLetter,
+      "match-analysis" => PromptType.MatchAnalysis,
+      _ => (PromptType?)null
+    };
+
+    if (promptTypeEnum == null)
+      return Result<DeletePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
+
+    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
+    cache.Remove(cacheKey);
+
+    var response = new DeletePromptResponse(
+        Message: $"Custom prompt for {promptType} deleted successfully. Will use default prompt.",
+        UserId: userId,
+        PromptType: promptType
+    );
+
+    return Result<DeletePromptResponse>.Success(response).ToHttpResult();
+  }
 }
 
-/// <summary>
-/// Request DTO for saving API key.
-/// </summary>
+// DTOs for Groq API Key
 public sealed record SaveApiKeyRequest(string ApiKey);
+public sealed record SaveApiKeyResponse(string Message, string UserId, string ExpiresIn);
+public sealed record ApiKeyStatusResponse(bool HasKey, string? MaskedKey, string Message);
+public sealed record DeleteApiKeyResponse(string Message, string UserId);
 
-/// <summary>
-/// Response DTO for saving API key operation.
-/// </summary>
-public sealed record SaveApiKeyResponse(
-    string Message,
-    string UserId,
-    string ExpiresIn
-);
+// DTOs for Custom Prompts
+public sealed record SaveCustomPromptRequest(string Prompt);
+public sealed record SavePromptResponse(string Message, string UserId, string PromptType, int PromptLength, string ExpiresIn);
+public sealed record CustomPromptResponse(string PromptType, string Prompt, int PromptLength);
+public sealed record DeletePromptResponse(string Message, string UserId, string PromptType);
 
-/// <summary>
-/// Response DTO for API key status check.
-/// </summary>
-public sealed record ApiKeyStatusResponse(
-    bool HasKey,
-    string? MaskedKey,
-    string Message
-);
 
-/// <summary>
-/// Response DTO for deleting API key operation.
-/// </summary>
-public sealed record DeleteApiKeyResponse(
-    string Message,
-    string UserId
-);

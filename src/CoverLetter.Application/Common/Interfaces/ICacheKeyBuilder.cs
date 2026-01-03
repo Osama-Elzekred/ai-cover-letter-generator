@@ -1,0 +1,18 @@
+namespace CoverLetter.Application.Common.Interfaces;
+
+/// <summary>
+/// Builds consistent cache keys for user-specific data.
+/// Centralizes cache key generation to prevent typos and make future migrations easier.
+/// </summary>
+public interface ICacheKeyBuilder
+{
+  /// <summary>
+  /// Generates cache key for user's custom prompt.
+  /// </summary>
+  string UserPromptKey(string userId, PromptType type);
+
+  /// <summary>
+  /// Generates cache key for user's API key (BYOK pattern).
+  /// </summary>
+  string UserApiKey(string userId);
+}
