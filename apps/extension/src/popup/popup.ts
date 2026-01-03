@@ -57,10 +57,16 @@ const sourceEditor = document.getElementById('sourceEditor') as HTMLDivElement;
 const pdfMessage = document.getElementById('pdfMessage') as HTMLDivElement;
 
 // Tabs
-const tabUpload = document.getElementById('tabUpload') as HTMLButtonElement;
-const tabText = document.getElementById('tabText') as HTMLButtonElement;
-const sectionUpload = document.getElementById('sectionUpload') as HTMLElement;
-const sectionText = document.getElementById('sectionText') as HTMLElement;
+const tabInput = document.getElementById('tabInput') as HTMLButtonElement;
+const tabResults = document.getElementById('tabResults') as HTMLButtonElement;
+const tabSettings = document.getElementById('tabSettings') as HTMLButtonElement;
+const sectionInput = document.getElementById('sectionInput') as HTMLElement;
+const sectionResults = document.getElementById('sectionResults') as HTMLElement;
+const sectionSettings = document.getElementById('sectionSettings') as HTMLElement;
+
+// Result subsections
+const coverLetterResult = document.getElementById('coverLetterResult') as HTMLElement;
+const cvEditorResult = document.getElementById('cvEditorResult') as HTMLElement;
 
 // Text Input
 const cvTextInput = document.getElementById('cvText') as HTMLTextAreaElement;
@@ -70,6 +76,16 @@ const customPromptInput = document.getElementById('customPromptTemplate') as HTM
 const modeAppend = document.getElementById('modeAppend') as HTMLInputElement;
 const modeReplace = document.getElementById('modeReplace') as HTMLInputElement;
 
+// Settings Tab Elements
+const promptTypeSelect = document.getElementById('promptTypeSelect') as HTMLSelectElement;
+const customPromptEditor = document.getElementById('customPromptEditor') as HTMLTextAreaElement;
+const savePromptBtn = document.getElementById('savePromptBtn') as HTMLButtonElement;
+const loadPromptBtn = document.getElementById('loadPromptBtn') as HTMLButtonElement;
+const viewDefaultBtn = document.getElementById('viewDefaultBtn') as HTMLButtonElement;
+const deletePromptBtn = document.getElementById('deletePromptBtn') as HTMLButtonElement;
+const promptStatus = document.getElementById('promptStatus') as HTMLDivElement;
+const promptStatusText = document.getElementById('promptStatusText') as HTMLSpanElement;
+
 // ============================================
 // State
 // ============================================
@@ -77,7 +93,7 @@ const modeReplace = document.getElementById('modeReplace') as HTMLInputElement;
 let currentCvId: string | null = null;
 let generatedCoverLetter: string | null = null;
 let currentPdfBase64: string | null = null;
-let activeTab: 'upload' | 'text' = 'upload';
+let activeTab: 'input' | 'results' | 'settings' = 'input';
 
 // ============================================
 // Initialization
@@ -121,7 +137,8 @@ async function init() {
       currentPdfBase64 = editorState.pdfBase64;
       latexSourceTextarea.value = editorState.latex;
       updateEditor();
-      cvEditorSection.classList.remove('hidden');
+      cvEditorResult.classList.remove('hidden');
+      sectionResults.classList.remove('hidden');
     }
   } catch (error) {
     console.error('[Popup] Error loading editor state:', error);
@@ -134,7 +151,8 @@ async function init() {
       console.log('[Popup] Restoring cover letter');
       generatedCoverLetter = cl;
       resultContent.textContent = cl;
-      resultSection.classList.remove('hidden');
+      coverLetterResult.classList.remove('hidden');
+      sectionResults.classList.remove('hidden');
     }
   } catch (error) {
     console.error('[Popup] Error loading cover letter:', error);
@@ -239,22 +257,37 @@ async function handleCvUpload(file: File) {
 // Tabs Navigation
 // ============================================
 
-tabUpload.addEventListener('click', () => {
-  activeTab = 'upload';
-  tabUpload.classList.add('active');
-  tabText.classList.remove('active');
-  sectionUpload.classList.remove('hidden');
-  sectionText.classList.add('hidden');
+tabInput.addEventListener('click', () => {
+  activeTab = 'input';
+  tabInput.classList.add('active');
+  tabResults.classList.remove('active');
+  tabSettings.classList.remove('active');
+  sectionInput.classList.remove('hidden');
+  sectionResults.classList.add('hidden');
+  sectionSettings.classList.add('hidden');
   updateGenerateButtonState();
 });
 
-tabText.addEventListener('click', () => {
-  activeTab = 'text';
-  tabText.classList.add('active');
-  tabUpload.classList.remove('active');
-  sectionText.classList.remove('hidden');
-  sectionUpload.classList.add('hidden');
-  updateGenerateButtonState();
+tabResults.addEventListener('click', () => {
+  activeTab = 'results';
+  tabResults.classList.add('active');
+  tabInput.classList.remove('active');
+  tabSettings.classList.remove('active');
+  sectionResults.classList.remove('hidden');
+  sectionInput.classList.add('hidden');
+  sectionSettings.classList.add('hidden');
+});
+
+tabSettings.addEventListener('click', () => {
+  activeTab = 'settings';
+  tabSettings.classList.add('active');
+  tabInput.classList.remove('active');
+  tabResults.classList.remove('active');
+  sectionSettings.classList.remove('hidden');
+  sectionInput.classList.add('hidden');
+  sectionResults.classList.add('hidden');
+  // Load current prompt when opening settings
+  loadCurrentPrompt();
 });
 
 function showCvInfo(fileName: string) {
@@ -312,10 +345,13 @@ customizeCvBtn.addEventListener('click', async (e) => {
     // Persist editor state
     await storage.saveEditorState(response.latexSource, response.pdfContent);
     
-    // Show editor section
-    cvEditorSection.classList.remove('hidden');
+    // Show editor result and switch to Results tab
+    cvEditorResult.classList.remove('hidden');
+    sectionResults.classList.remove('hidden');
+    tabResults.click();
+    
+    setTimeout(() => cvEditorResult.scrollIntoView({ behavior: 'smooth' }), 100);
     switchToSourceView();
-    cvEditorSection.scrollIntoView({ behavior: 'smooth' });
     
     showSuccess('✨ Magic CV generated! You can now view or edit the source.');
   } catch (error) {
@@ -569,12 +605,8 @@ generateBtn.addEventListener('click', async () => {
     let response;
     const fullJobDesc = `Job Title: ${jobTitle}\nCompany: ${companyName}\n\nJob Description:\n${jobDescription}`;
 
-    if (activeTab === 'upload') {
-      if (!currentCvId) {
-        showError('Please upload your CV first');
-        hideLoading();
-        return;
-      }
+    // Check if using CV ID (file upload) or direct text
+    if (currentCvId) {
       response = await api.generateCoverLetter({
         cvId: currentCvId,
         jobDescription: fullJobDesc,
@@ -604,8 +636,12 @@ generateBtn.addEventListener('click', async () => {
     // Persist cover letter
     await storage.saveGeneratedCoverLetter(response.coverLetter);
     
-    resultSection.classList.remove('hidden');
-    resultSection.scrollIntoView({ behavior: 'smooth' });
+    // Show cover letter result and switch to Results tab
+    coverLetterResult.classList.remove('hidden');
+    sectionResults.classList.remove('hidden');
+    tabResults.click();
+    
+    setTimeout(() => coverLetterResult.scrollIntoView({ behavior: 'smooth' }), 100);
     showSuccess('Cover letter generated!');
   } catch (error) {
     handleApiError(error, 'Failed to generate cover letter');
@@ -694,17 +730,13 @@ function updateGenerateButtonState() {
   const hasCompany = companyNameInput.value.trim().length > 0;
   const hasDescription = jobDescriptionInput.value.trim().length > 0;
   
-  let hasCVSource = false;
-  if (activeTab === 'upload') {
-    hasCVSource = !!currentCvId;
-  } else {
-    hasCVSource = cvTextInput.value.trim().length > 0;
-  }
+  // Check if we have CV source (either uploaded file or pasted text)
+  const hasCVSource = !!currentCvId || cvTextInput.value.trim().length > 0;
 
   console.log('[Popup] Button State Check:', { activeTab, hasCVSource, hasJobTitle, hasCompany, hasDescription, currentCvId });
   generateBtn.disabled = !(hasCVSource && hasJobTitle && hasCompany && hasDescription);
   
-  // Magic Button specifically needs a CV and Job details
+  // Magic Button specifically needs a CV ID (uploaded file) and Job details
   customizeCvBtn.disabled = !(currentCvId && hasJobTitle && hasCompany && hasDescription);
 }
 
@@ -762,6 +794,175 @@ function handleApiError(error: any, fallbackMessage: string) {
   } else {
     showError(fallbackMessage);
   }
+}
+
+// ============================================
+// Settings Tab - Custom Prompts
+// ============================================
+
+// Load saved prompt when prompt type changes
+promptTypeSelect.addEventListener('change', () => {
+  loadCurrentPrompt();
+});
+
+// Load current prompt for selected type
+async function loadCurrentPrompt() {
+  const promptType = promptTypeSelect.value as 'cv-customization' | 'cover-letter' | 'match-analysis';
+  
+  try {
+    const response: ChromeMessage = await chrome.runtime.sendMessage({
+      type: 'GET_CUSTOM_PROMPT',
+      payload: { promptType }
+    });
+
+    if (response.error) {
+      console.error('Error loading prompt:', response.error);
+      customPromptEditor.value = '';
+    } else if (response.payload?.prompt) {
+      customPromptEditor.value = response.payload.prompt;
+      showPromptStatus('Loaded saved prompt', 'info');
+    } else {
+      customPromptEditor.value = '';
+      customPromptEditor.placeholder = 'No custom prompt saved. Click "View Default" to see the system prompt.';
+    }
+  } catch (error) {
+    console.error('Error loading prompt:', error);
+    customPromptEditor.value = '';
+  }
+}
+
+// Save custom prompt
+savePromptBtn.addEventListener('click', async () => {
+  const promptType = promptTypeSelect.value;
+  const prompt = customPromptEditor.value.trim();
+
+  if (!prompt) {
+    showPromptStatus('Please enter a custom prompt', 'error');
+    return;
+  }
+
+  try {
+    showLoading('Saving custom prompt...');
+
+    const response: ChromeMessage = await chrome.runtime.sendMessage({
+      type: 'SAVE_CUSTOM_PROMPT',
+      payload: { promptType, prompt }
+    });
+
+    if (response.error) {
+      showPromptStatus('Failed to save prompt', 'error');
+      showError(response.error || 'Failed to save prompt');
+    } else {
+      showPromptStatus('Custom prompt saved successfully!', 'success');
+      showSuccess('Custom prompt saved');
+    }
+  } catch (error: any) {
+    console.error('Error saving prompt:', error);
+    showPromptStatus('Error saving prompt', 'error');
+    showError(error.message || 'Failed to save prompt');
+  } finally {
+    hideLoading();
+  }
+});
+
+// Load saved prompt button
+loadPromptBtn.addEventListener('click', () => {
+  loadCurrentPrompt();
+});
+
+// View default prompt
+viewDefaultBtn.addEventListener('click', async () => {
+  const promptType = promptTypeSelect.value;
+  
+  // Map to API prompt types
+  const apiPromptTypeMap: Record<string, string> = {
+    'cv-customization': 'CvCustomization',
+    'cover-letter': 'CoverLetter',
+    'match-analysis': 'MatchAnalysis'
+  };
+
+  try {
+    showLoading('Loading default prompt...');
+
+    const response: ChromeMessage = await chrome.runtime.sendMessage({
+      type: 'VIEW_PROMPTS_DIRECT'
+    });
+
+    if (response.error) {
+      showPromptStatus('Failed to load default prompt', 'error');
+    } else if (response.payload) {
+      const templates = response.payload;
+      const promptType = promptTypeSelect.value;
+      
+      // Convert kebab-case to camelCase (e.g., 'cv-customization' -> 'cvCustomization')
+      const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const templateKey = toCamelCase(promptType);
+      const template = templates[templateKey];
+
+      if (template) {
+        customPromptEditor.value = template;
+        showPromptStatus('Loaded default prompt (read-only view)', 'info');
+      } else {
+        showPromptStatus('Default prompt not found', 'error');
+      }
+    }
+  } catch (error: any) {
+    console.error('Error loading default prompt:', error);
+    showPromptStatus('Error loading default prompt', 'error');
+  } finally {
+    hideLoading();
+  }
+});
+
+// Delete custom prompt
+deletePromptBtn.addEventListener('click', async () => {
+  const promptType = promptTypeSelect.value;
+
+  if (!confirm('Are you sure you want to delete this custom prompt? The default prompt will be used instead.')) {
+    return;
+  }
+
+  try {
+    showLoading('Deleting custom prompt...');
+
+    const response: ChromeMessage = await chrome.runtime.sendMessage({
+      type: 'DELETE_CUSTOM_PROMPT',
+      payload: { promptType }
+    });
+
+    if (response.error) {
+      showPromptStatus('Failed to delete prompt', 'error');
+      showError(response.error || 'Failed to delete prompt');
+    } else {
+      customPromptEditor.value = '';
+      showPromptStatus('Custom prompt deleted. Using default.', 'success');
+      showSuccess('Custom prompt deleted');
+    }
+  } catch (error: any) {
+    console.error('Error deleting prompt:', error);
+    showPromptStatus('Error deleting prompt', 'error');
+    showError(error.message || 'Failed to delete prompt');
+  } finally {
+    hideLoading();
+  }
+});
+
+function showPromptStatus(message: string, type: 'success' | 'error' | 'info') {
+  promptStatusText.textContent = message;
+  promptStatus.classList.remove('hidden');
+  
+  // Color coding
+  if (type === 'success') {
+    promptStatus.style.color = '#10b981';
+  } else if (type === 'error') {
+    promptStatus.style.color = '#ef4444';
+  } else {
+    promptStatus.style.color = '#6366f1';
+  }
+  
+  setTimeout(() => {
+    promptStatus.classList.add('hidden');
+  }, 3000);
 }
 
 // ============================================

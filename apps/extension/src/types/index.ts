@@ -87,7 +87,11 @@ export type MessageType =
   | 'GENERATE_COVER_LETTER_DIRECT'
   | 'MATCH_CV_DIRECT'
   | 'COMPILE_LATEX_DIRECT'
-  | 'OPEN_OVERLEAF_DIRECT';
+  | 'OPEN_OVERLEAF_DIRECT'
+  | 'VIEW_PROMPTS_DIRECT'
+  | 'SAVE_CUSTOM_PROMPT'
+  | 'GET_CUSTOM_PROMPT'
+  | 'DELETE_CUSTOM_PROMPT';
 
 export interface ChromeMessage<T = any> {
   type: MessageType;

@@ -321,7 +321,7 @@ function renderResumeTab(): string {
         </div>
       ` : ''}
       
-      <div class="action-status-box">
+      <div class="action-status-box" style="margin-top: 16px;">
         <div class="status-badge">Professional PDF</div>
         <p>Uses aggressive keyword matching to beat ATS filters.</p>
         <div class="mini-tags">
@@ -330,10 +330,14 @@ function renderResumeTab(): string {
         </div>
       </div>
 
-      <button id="ai-magic-cv-btn" class="primary-btn ai-grad">
+      <button id="ai-magic-cv-btn" class="primary-btn ai-grad" style="width: 100%;">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="white" style="margin-right: 8px;"><path d="M12 2L14.5 9L22 11.5L14.5 14L12 21L9.5 14L2 11.5L9.5 9L12 2Z"/></svg>
         Generate CV
       </button>
+      
+      <p style="margin: 12px 0 0 0; font-size: 11px; color: #94a3b8; text-align: center;">
+        💡 Tip: Customize prompts via extension Settings tab (click extension icon)
+      </p>
     </div>
   `;
 }
@@ -454,6 +458,9 @@ function attachEvents(container: HTMLElement) {
     clPromptEnabled = clToggle.checked;
     renderWidget(container);
   });
+
+  // LaTeX Template Toggle (removed - now in Settings)
+  // Users can customize prompts including LaTeX templates via extension Settings tab
 
   // Mode Selectors
   container.querySelectorAll('.mode-btn').forEach(btn => {
@@ -803,6 +810,9 @@ async function handleMagicCV() {
 
   const customPrompt = (document.getElementById('cv-custom-prompt') as HTMLTextAreaElement)?.value;
   
+  // Note: Custom LaTeX templates are now managed via extension Settings tab
+  // Users save custom prompts (which can include LaTeX templates) persistently
+  
   cvProcessing = true;
   const container = document.getElementById('ai-copilot-container')!;
   
@@ -890,6 +900,76 @@ async function handleCoverLetter() {
   } finally {
     letterProcessing = false;
     renderWidget(container);
+  }
+}
+
+async function handleViewPrompt() {
+  try {
+    // Request templates from service worker
+    const response = await chrome.runtime.sendMessage({ 
+      type: 'VIEW_PROMPTS_DIRECT'
+    });
+    
+    if (response?.type !== 'SUCCESS') {
+      throw new Error(response?.error || 'Failed to load templates');
+    }
+    
+    const templates = response.payload;
+    
+    // Create modal to display templates
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; max-width: 800px; max-height: 90vh; overflow: auto; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0; color: #1e293b; font-size: 18px; font-weight: 700;">📋 Prompt Templates</h2>
+          <button id="close-modal-btn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #475569; font-size: 14px; font-weight: 600; margin-bottom: 8px;">🎯 CV Customization Prompt</h3>
+          <pre style="background: #f8fafc; padding: 16px; border-radius: 8px; font-size: 11px; line-height: 1.6; overflow-x: auto; color: #334155; border: 1px solid #e2e8f0;">${templates.cvCustomization}</pre>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #475569; font-size: 14px; font-weight: 600; margin-bottom: 8px;">💌 Cover Letter Prompt</h3>
+          <pre style="background: #f8fafc; padding: 16px; border-radius: 8px; font-size: 11px; line-height: 1.6; overflow-x: auto; color: #334155; border: 1px solid #e2e8f0;">${templates.coverLetter}</pre>
+        </div>
+        
+        <div style="margin-bottom: 0;">
+          <h3 style="color: #475569; font-size: 14px; font-weight: 600; margin-bottom: 8px;">🔍 Match Analysis Prompt</h3>
+          <pre style="background: #f8fafc; padding: 16px; border-radius: 8px; font-size: 11px; line-height: 1.6; overflow-x: auto; color: #334155; border: 1px solid #e2e8f0;">${templates.matchAnalysis}</pre>
+        </div>
+        
+        <p style="margin-top: 16px; font-size: 11px; color: #94a3b8; font-style: italic;">💡 Variables like {{CV}}, {{JOB_DESCRIPTION}}, etc. are replaced with actual data at runtime.</p>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal on button click or backdrop click
+    const closeBtn = modal.querySelector('#close-modal-btn');
+    closeBtn?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+    
+  } catch (err) {
+    alert('Error loading prompt templates. Please try again.');
+    console.error(err);
   }
 }
 
@@ -1227,6 +1307,43 @@ function injectStyles() {
     
     .overleaf-btn { background: #47a1ad !important; }
     .btn-icon { margin-right: 6px; }
+    
+    /* File Upload Styles */
+    .drop-zone { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      padding: 32px 20px; 
+      background: #f8fafc; 
+      border: 2px dashed #cbd5e1; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .drop-zone:hover { 
+      border-color: #3b82f6; 
+      background: #eff6ff; 
+    }
+    .file-selected {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #166534;
+    }
+    .file-selected span {
+      flex: 1;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   `;
   document.head.appendChild(style);
 }

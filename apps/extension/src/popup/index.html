@@ -22,74 +22,85 @@
 
     <!-- Navigation Tabs -->
     <nav class="tabs-nav">
-      <button class="tab-btn active" id="tabUpload">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        Upload CV
-      </button>
-      <button class="tab-btn" id="tabText">
+      <button class="tab-btn active" id="tabInput">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
           <line x1="16" y1="13" x2="8" y2="13"></line>
           <line x1="16" y1="17" x2="8" y2="17"></line>
-          <line x1="10" y1="9" x2="8" y2="9"></line>
         </svg>
-        Direct Text
+        Input
+      </button>
+      <button class="tab-btn" id="tabResults">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+        Results
+      </button>
+      <button class="tab-btn" id="tabSettings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M5.6 5.6l4.2 4.2m4.2 4.2l4.2 4.2M1 12h6m6 0h6M5.6 18.4l4.2-4.2m4.2-4.2l4.2-4.2"></path>
+        </svg>
+        Settings
       </button>
     </nav>
 
-    <!-- CV Upload Section -->
-    <section class="section" id="sectionUpload">
+    <!-- Input Section -->
+    <section class="section" id="sectionInput">
+      <!-- CV Input Methods -->
       <h2 class="section-title">📄 Your CV</h2>
-      <div class="cv-upload-area" id="cvUploadArea">
-        <input type="file" id="cvFileInput" accept=".pdf,.docx" hidden>
-        <div class="upload-placeholder" id="uploadPlaceholder">
-          <p>Click or drag PDF/DOCX file here</p>
-          <span class="file-size-hint">Max 5MB</span>
-        </div>
-        <div class="cv-info hidden" id="cvInfo">
-          <div class="cv-details">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
-            <span id="cvFileName">document.pdf</span>
+      <div class="tab-pill" style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 20px; margin-bottom: 16px;">
+        <button class="tab-pill-btn active" id="btnCvUpload" style="padding: 6px 16px; border: none; background: transparent; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 16px; flex: 1;">Upload File</button>
+        <button class="tab-pill-btn" id="btnCvText" style="padding: 6px 16px; border: none; background: transparent; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 16px; flex: 1;">Paste Text</button>
+      </div>
+
+      <!-- CV Upload Area -->
+      <div id="cvUploadArea">
+        <div class="cv-upload-area">
+          <input type="file" id="cvFileInput" accept=".pdf,.docx" hidden>
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <p>Click or drag PDF/DOCX file here</p>
+            <span class="file-size-hint">Max 5MB</span>
           </div>
-          <button class="btn-icon" id="deleteCvBtn" title="Delete CV">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
-        <div class="cv-actions mt-2">
-          <button class="btn btn-premium w-full" id="customizeCvBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path>
-              <path d="M5 3l.637 1.938a1 1 0 00.637.637L8.213 6l-1.938.637a1 1 0 00-.637.637L5 9.213l-.637-1.938a1 1 0 00-.637-.637L1.787 6l1.938-.637a1 1 0 00.637-.637L5 3z"></path>
-              <path d="M19 15l.637 1.938a1 1 0 00.637.637l1.938.637-1.938.637a1 1 0 00-.637.637L19 21.213l-.637-1.938a1 1 0 00-.637-.637L15.787 18l1.938-.637a1 1 0 00.637-.637L19 15z"></path>
-            </svg>
-            Magic AI CV Tailor (PDF)
-          </button>
+          <div class="cv-info hidden" id="cvInfo">
+            <div class="cv-details">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              <span id="cvFileName">document.pdf</span>
+            </div>
+            <button class="btn-icon" id="deleteCvBtn" title="Delete CV">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="cv-actions mt-2">
+            <button class="btn btn-premium w-full" id="customizeCvBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path>
+                <path d="M5 3l.637 1.938a1 1 0 00.637.637L8.213 6l-1.938.637a1 1 0 00-.637.637L5 9.213l-.637-1.938a1 1 0 00-.637-.637L1.787 6l1.938-.637a1 1 0 00.637-.637L5 3z"></path>
+                <path d="M19 15l.637 1.938a1 1 0 00.637.637l1.938.637-1.938.637a1 1 0 00-.637.637L19 21.213l-.637-1.938a1 1 0 00-.637-.637L15.787 18l1.938-.637a1 1 0 00.637-.637L19 15z"></path>
+              </svg>
+              Magic AI CV Tailor (PDF)
+            </button>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- CV Text Section -->
-    <section class="section hidden" id="sectionText">
-      <div class="form-group">
-        <label for="cvText">Paste CV Text</label>
-        <textarea id="cvText" rows="6" placeholder="Paste your CV content here..."></textarea>
+      <!-- CV Text Area -->
+      <div id="cvTextArea" class="hidden">
+        <div class="form-group">
+          <label for="cvText">Paste CV Text</label>
+          <textarea id="cvText" rows="6" placeholder="Paste your CV content here..."></textarea>
+        </div>
       </div>
-    </section>
-
-    <!-- Job Extraction Section -->
-    <section class="section">
-      <h2 class="section-title">💼 Job Details</h2>
+      <!-- Job Details -->
+      <h2 class="section-title" style="margin-top: 24px;">💼 Job Details</h2>
       <button class="btn btn-secondary" id="extractJobBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"></circle>
@@ -112,65 +123,143 @@
           <textarea id="jobDescription" rows="6" placeholder="Paste the job description here..."></textarea>
         </div>
       </div>
+
+      <!-- Advanced Options -->
+      <details class="section settings-section">
+        <summary class="settings-header">🛠️ Advanced Options</summary>
+        <div class="settings-content">
+          <div class="form-group">
+            <label for="customPromptTemplate">Custom Prompt Template (Optional)</label>
+            <textarea id="customPromptTemplate" rows="4" placeholder="e.g. Write in a very professional tone..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Prompt Mode</label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" name="promptMode" value="0" id="modeAppend" checked>
+                <label for="modeAppend" class="radio-label">Append</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="promptMode" value="1" id="modeReplace">
+                <label for="modeReplace" class="radio-label">Replace</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Generate Button -->
+      <button class="btn btn-primary" id="generateBtn" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        Generate Cover Letter
+      </button>
     </section>
 
-    <!-- Advanced Options -->
-    <details class="section settings-section">
-      <summary class="settings-header">🛠️ Advanced Options</summary>
-      <div class="settings-content">
-        <div class="form-group">
-          <label for="customPromptTemplate">Custom Prompt Template (Optional)</label>
-          <textarea id="customPromptTemplate" rows="4" placeholder="e.g. Write in a very professional tone..."></textarea>
+    <!-- Results Section -->
+    <section class="section hidden" id="sectionResults">
+      <!-- Cover Letter -->
+       <div id="coverLetterResult" class="hidden">
+        <h2 class="section-title">📝 Your Cover Letter</h2>
+        <div class="result-content" id="resultContent"></div>
+        <div class="result-actions">
+          <button class="btn btn-secondary" id="copyBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy to Clipboard
+          </button>
+          <button class="btn btn-secondary" id="downloadBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download TXT
+          </button>
         </div>
-        <div class="form-group">
-          <label>Prompt Mode</label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" name="promptMode" value="0" id="modeAppend" checked>
-              <label for="modeAppend" class="radio-label">Append</label>
+      </div>
+
+      <!-- Tailored CV -->     
+       <div id="cvEditorResult" class="hidden" style="margin-top: 24px;">
+        <div class="result-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 class="section-title" style="margin: 0;">🛠️ Tailored CV</h2>
+          <div class="tab-pill" style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 20px;">
+            <button class="tab-pill-btn active" id="btnViewSource" style="padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 16px;">Source</button>
+            <button class="tab-pill-btn" id="btnViewPreview" style="padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 16px;">Preview</button>
+          </div>
+        </div>
+      
+        <div id="sourceEditor">
+          <!-- Highlighted Editor Container -->
+          <div class="editor-container">
+            <pre id="highlighting" aria-hidden="true"><code class="language-latex" id="highlighting-content"></code></pre>
+            <textarea id="latexSource" spellcheck="false" placeholder="LaTeX source code will appear here..."></textarea>
+          </div>
+
+          <div class="cv-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+            <button class="btn btn-primary" id="recompileBtn" style="flex: 1; min-width: 120px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6"></path>
+                <path d="M1 20v-6h6"></path>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              Re-compile
+            </button>
+            <button class="btn btn-secondary" id="downloadTexBtn" title="Download .tex">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+            <button class="btn btn-secondary" id="overleafBtn" title="Open in Overleaf">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Overleaf
+            </button>
+          </div>
+        </div>
+
+        <div id="pdfMessage" class="hidden">
+          <div class="pdf-preview-box">
+            <div class="pdf-preview-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+              </svg>
             </div>
-            <div class="radio-option">
-              <input type="radio" name="promptMode" value="1" id="modeReplace">
-              <label for="modeReplace" class="radio-label">Replace</label>
+            <p class="pdf-preview-status">PDF Ready for Review</p>
+            <div class="pdf-preview-actions">
+              <button class="btn btn-primary btn-sm" id="viewPdfBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                View in Browser
+              </button>
+              <button class="btn btn-secondary btn-sm" id="downloadPdfBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Download PDF
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </details>
-
-    <!-- Generate Button -->
-    <button class="btn btn-primary" id="generateBtn" disabled>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-      </svg>
-      Generate Cover Letter
-    </button>
-
-    <!-- Result Section -->
-    <section class="section result-section hidden" id="resultSection">
-      <h2 class="section-title">📝 Your Cover Letter</h2>
-      <div class="result-content" id="resultContent"></div>
-      <div class="result-actions">
-        <button class="btn btn-secondary" id="copyBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-          Copy to Clipboard
-        </button>
-        <button class="btn btn-secondary" id="downloadBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          Download TXT
-        </button>
-      </div>
     </section>
 
-    <!-- CV Editor Section -->
-    <section class="section hidden" id="cvEditorSection">
+    <!-- CV Editor Section - OLD, REMOVE THIS -->
+    <section class="section hidden" id="cvEditorSection" style="display: none !important;">
       <div class="result-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h2 class="section-title" style="margin: 0;">🛠️ CV Source Code</h2>
         <div class="tab-pill" style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 20px;">
@@ -244,27 +333,68 @@
       </div>
     </section>
 
-    <!-- Settings Section -->
-    <details class="settings-section">
-      <summary class="settings-header">⚙️ Settings</summary>
-      <div class="settings-content">
-        <p class="settings-info">Add your Groq API key to bypass rate limits (10/min → unlimited)</p>
+    <!-- Settings Section (Tab) -->
+    <section class="section hidden" id="sectionSettings">
+      <h2 class="section-title">⚙️ Settings</h2>
+      
+      <!-- API Key Settings -->
+      <div class="settings-group">
+        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #334155;">🔑 API Configuration</h3>
+        <p class="settings-info" style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Add your Groq API key to bypass rate limits (10/min → unlimited)</p>
         <div class="form-group">
           <label for="apiKeyInput">Groq API Key (Optional)</label>
           <input type="password" id="apiKeyInput" placeholder="gsk_...">
         </div>
-        <div class="settings-actions">
+        <div class="settings-actions" style="display: flex; gap: 8px; margin-top: 8px;">
           <button class="btn btn-secondary btn-sm" id="saveApiKeyBtn">Save Key</button>
           <button class="btn btn-secondary btn-sm" id="deleteApiKeyBtn">Delete Key</button>
         </div>
-        <div class="api-key-status hidden" id="apiKeyStatus">
+        <div class="api-key-status hidden" id="apiKeyStatus" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #10b981; font-size: 12px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
           <span>API key saved</span>
         </div>
       </div>
-    </details>
+
+      <!-- Custom Prompts Settings -->
+      <div class="settings-group" style="margin-top: 24px;">
+        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #334155;">✨ Custom Prompts</h3>
+        <p class="settings-info" style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Customize AI instructions for CV tailoring, cover letters, and job matching. Leave empty to use defaults.</p>
+        
+        <!-- Prompt Type Selector -->
+        <div class="form-group">
+          <label>Prompt Type</label>
+          <select id="promptTypeSelect" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px;">
+            <option value="cv-customization">CV Customization</option>
+            <option value="cover-letter">Cover Letter Generation</option>
+            <option value="match-analysis">Job Match Analysis</option>
+          </select>
+        </div>
+
+        <!-- Custom Prompt Editor -->
+        <div class="form-group">
+          <label for="customPromptEditor">Custom Instructions</label>
+          <textarea id="customPromptEditor" rows="8" placeholder="Enter custom prompt instructions here...
+You can include LaTeX templates, specific formatting requirements, tone preferences, etc."></textarea>
+          <p style="font-size: 11px; color: #94a3b8; margin-top: 4px;">💡 Tip: View default prompts first to understand the structure</p>
+        </div>
+
+        <div class="settings-actions" style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary btn-sm" id="savePromptBtn">Save Prompt</button>
+          <button class="btn btn-secondary btn-sm" id="loadPromptBtn">Load Saved</button>
+          <button class="btn btn-secondary btn-sm" id="viewDefaultBtn">View Default</button>
+          <button class="btn btn-secondary btn-sm" id="deletePromptBtn">Delete</button>
+        </div>
+        
+        <div class="prompt-status hidden" id="promptStatus" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span id="promptStatusText">Prompt saved successfully</span>
+        </div>
+      </div>
+    </section>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay hidden" id="loadingOverlay">

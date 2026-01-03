@@ -7,7 +7,11 @@ import {
   customizeCv, 
   generateCoverLetter, 
   matchCv, 
-  compileLatex 
+  compileLatex,
+  getPromptTemplates,
+  saveCustomPrompt,
+  getCustomPrompt,
+  deleteCustomPrompt
 } from '../utils/api-client.js';
 import type { ChromeMessage } from '../types/index.js';
 
@@ -42,6 +46,26 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
   if (message.type === 'OPEN_OVERLEAF_DIRECT') {
     handleOpenOverleaf(message.payload);
     sendResponse({ type: 'SUCCESS' });
+    return true;
+  }
+
+  if (message.type === 'VIEW_PROMPTS_DIRECT') {
+    handleViewPrompts(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'SAVE_CUSTOM_PROMPT') {
+    handleSaveCustomPrompt(message.payload, sendResponse);
+    return true;
+  }
+
+  if (message.type === 'GET_CUSTOM_PROMPT') {
+    handleGetCustomPrompt(message.payload, sendResponse);
+    return true;
+  }
+
+  if (message.type === 'DELETE_CUSTOM_PROMPT') {
+    handleDeleteCustomPrompt(message.payload, sendResponse);
     return true;
   }
   
@@ -192,6 +216,54 @@ function handleOpenOverleaf(payload: any) {
   
   const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(formPage);
   chrome.tabs.create({ url: dataUrl });
+}
+
+/**
+ * Get prompt templates
+ */
+async function handleViewPrompts(sendResponse: (msg: any) => void) {
+  try {
+    const templates = await getPromptTemplates();
+    sendResponse({ type: 'SUCCESS', payload: templates });
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
+}
+
+/**
+ * Save custom prompt
+ */
+async function handleSaveCustomPrompt(payload: any, sendResponse: (msg: any) => void) {
+  try {
+    await saveCustomPrompt(payload.promptType, payload.prompt);
+    sendResponse({ type: 'SUCCESS' });
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
+}
+
+/**
+ * Get custom prompt
+ */
+async function handleGetCustomPrompt(payload: any, sendResponse: (msg: any) => void) {
+  try {
+    const prompt = await getCustomPrompt(payload.promptType);
+    sendResponse({ type: 'SUCCESS', payload: { prompt } });
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
+}
+
+/**
+ * Delete custom prompt
+ */
+async function handleDeleteCustomPrompt(payload: any, sendResponse: (msg: any) => void) {
+  try {
+    await deleteCustomPrompt(payload.promptType);
+    sendResponse({ type: 'SUCCESS' });
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
 }
 
 chrome.runtime.onInstalled.addListener(() => console.log('[Service Worker] Extension Active'));
