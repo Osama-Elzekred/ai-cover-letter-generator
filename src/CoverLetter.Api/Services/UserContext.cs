@@ -13,11 +13,16 @@ public sealed class UserContext : IUserContext
   private const string UserIdContextKey = "UserId";
   private readonly IHttpContextAccessor _httpContextAccessor;
   private readonly IMemoryCache _cache;
+  private readonly ICacheKeyBuilder _cacheKeyBuilder;
 
-  public UserContext(IHttpContextAccessor httpContextAccessor, IMemoryCache cache)
+  public UserContext(
+      IHttpContextAccessor httpContextAccessor,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder)
   {
     _httpContextAccessor = httpContextAccessor;
     _cache = cache;
+    _cacheKeyBuilder = cacheKeyBuilder;
   }
 
   public string? UserId
@@ -40,7 +45,7 @@ public sealed class UserContext : IUserContext
       return null;
     }
 
-    var cacheKey = $"user:{UserId}:groq-api-key";
+    var cacheKey = _cacheKeyBuilder.UserApiKey(UserId);
     return _cache.TryGetValue<string>(cacheKey, out var apiKey) ? apiKey : null;
   }
 }

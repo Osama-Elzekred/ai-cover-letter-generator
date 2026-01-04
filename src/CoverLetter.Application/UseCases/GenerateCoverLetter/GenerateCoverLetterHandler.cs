@@ -27,10 +27,18 @@ public sealed class GenerateCoverLetterHandler(
   {
     try
     {
+      using var scope = logger.BeginScope(new Dictionary<string, object>
+      {
+        ["UserId"] = userContext.UserId ?? "anonymous",
+        ["HasCustomPrompt"] = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate),
+        ["PromptMode"] = request.PromptMode.ToString()
+      });
+
       // Resolve CV text from CvId or use direct CvText
       var cvText = await ResolveCvTextAsync(request, cancellationToken);
       if (cvText.IsFailure)
       {
+        logger.LogWarning("Failed to resolve CV text");
         return Result<GenerateCoverLetterResult>.Failure(cvText.Errors, cvText.Type);
       }
 

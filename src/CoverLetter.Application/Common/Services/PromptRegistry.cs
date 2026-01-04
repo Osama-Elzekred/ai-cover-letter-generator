@@ -132,6 +132,12 @@ Output only valid JSON:"
         // Inject default LaTeX if not provided for CV customization
         if (type == PromptType.CvCustomization && !variables.ContainsKey("LatexTemplate"))
         {
+            using var scope = _logger.BeginScope(new Dictionary<string, object>
+            {
+                ["PromptType"] = type.ToString(),
+                ["LatexTemplateInjected"] = true
+            });
+            _logger.LogDebug("Injecting default LaTeX template for CV customization");
             variables["LatexTemplate"] = _defaultCvLatex;
         }
 

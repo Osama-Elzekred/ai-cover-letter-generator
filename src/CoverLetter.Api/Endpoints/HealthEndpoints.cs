@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace CoverLetter.Api.Endpoints;
 
@@ -7,7 +8,7 @@ namespace CoverLetter.Api.Endpoints;
 /// </summary>
 public static class HealthEndpoints
 {
-  public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder app)
+  public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder app, HealthCheckOptions? healthCheckOptions = null)
   {
     var apiVersionSet = app.NewApiVersionSet()
         .HasApiVersion(new ApiVersion(1, 0))
@@ -22,6 +23,14 @@ public static class HealthEndpoints
     .WithDescription("Returns the health status of the API")
     .WithTags("Health")
     .Produces<object>(StatusCodes.Status200OK);
+
+    if (healthCheckOptions != null)
+    {
+      app.MapHealthChecks("/health/ready", healthCheckOptions)
+      .WithSummary("Check API dependencies")
+      .WithDescription("Returns the status of API dependencies (memory cache, LaTeX compiler)")
+      .WithTags("Health");
+    }
 
     return app;
   }

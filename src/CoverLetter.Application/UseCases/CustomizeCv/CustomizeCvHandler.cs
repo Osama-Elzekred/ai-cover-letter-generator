@@ -28,10 +28,18 @@ public sealed class CustomizeCvHandler(
     {
         try
         {
+            using var scope = logger.BeginScope(new Dictionary<string, object>
+            {
+                ["UserId"] = userContext.UserId ?? "anonymous",
+                ["CvId"] = request.CvId,
+                ["HasCustomPrompt"] = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate)
+            });
+
             // 1. Resolve CV text
             var cvResult = await cvRepository.GetByIdAsync(request.CvId, cancellationToken);
             if (cvResult.IsFailure)
             {
+                logger.LogWarning("CV not found: {CvId}", request.CvId);
                 return Result<CustomizeCvResult>.Failure(cvResult.Errors, cvResult.Type);
             }
             var cvDocument = cvResult.Value!;

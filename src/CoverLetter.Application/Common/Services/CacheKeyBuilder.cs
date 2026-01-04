@@ -20,9 +20,10 @@ public sealed partial class CacheKeyBuilder : ICacheKeyBuilder
     return $"user:{userId}:groq-api-key";
   }
 
-  /// <summary>
-  /// Converts PascalCase to kebab-case (e.g., CvCustomization -> cv-customization)
-  /// </summary>
+  public string CvKey(string cvId)
+  {
+    return $"cv:{cvId}";
+  }
   private static string ToKebabCase(string input)
   {
     if (string.IsNullOrEmpty(input))

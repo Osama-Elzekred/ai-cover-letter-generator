@@ -8,14 +8,14 @@ namespace CoverLetter.Infrastructure.Repositories;
 
 public sealed class CvRepository(
     IMemoryCache cache,
+    ICacheKeyBuilder cacheKeyBuilder,
     ILogger<CvRepository> logger) : ICvRepository
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
-    private string GetKey(string cvId) => $"cv:{cvId}";
 
     public Task<Result<CvDocument>> GetByIdAsync(string cvId, CancellationToken cancellationToken = default)
     {
-        var cacheKey = GetKey(cvId);
+        var cacheKey = cacheKeyBuilder.CvKey(cvId);
         if (cache.TryGetValue<CvDocument>(cacheKey, out var document) && document != null)
         {
             return Task.FromResult(Result<CvDocument>.Success(document));
@@ -23,26 +23,28 @@ public sealed class CvRepository(
 
         logger.LogWarning("CV not found in cache: {CvId}", cvId);
         return Task.FromResult(Result<CvDocument>.Failure(
-            $"CV with ID '{cvId}' not found. It may have expired or is invalid.", 
+            $"CV with ID '{cvId}' not found. It may have expired or is invalid.",
             ResultType.NotFound));
     }
 
     public Task SaveAsync(CvDocument document, CancellationToken cancellationToken = default)
     {
+        var cacheKey = cacheKeyBuilder.CvKey(document.Id);
         var cacheOptions = new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = CacheDuration,
             Size = 1
         };
-        
-        cache.Set(GetKey(document.Id), document, cacheOptions);
+
+        cache.Set(cacheKey, document, cacheOptions);
         logger.LogInformation("CV cached successfully: {CvId}", document.Id);
         return Task.CompletedTask;
     }
 
     public Task DeleteAsync(string cvId, CancellationToken cancellationToken = default)
     {
-        cache.Remove(GetKey(cvId));
+        var cacheKey = cacheKeyBuilder.CvKey(cvId);
+        cache.Remove(cacheKey);
         return Task.CompletedTask;
     }
 }

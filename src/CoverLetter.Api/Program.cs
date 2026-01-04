@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Extensions;
+using CoverLetter.Api.HealthChecks;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Api.Services;
 using CoverLetter.Application;
@@ -45,6 +46,30 @@ builder.Services.AddCorsWithEnvironmentPolicies(builder.Configuration, builder.E
 
 // ========== Rate Limiting ==========
 builder.Services.AddRateLimitingWithByok();
+
+// ========== Health Checks ==========
+builder.Services.AddHealthChecks()
+    .AddCheck<MemoryCacheHealthCheck>("memory_cache", tags: new[] { "dependency" })
+    .AddCheck<LatexCompilerHealthCheck>("latex_compiler", tags: new[] { "dependency" });
+
+var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("dependency"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description
+            })
+        });
+    }
+};
 
 // ========== OpenAPI / Swagger ==========
 builder.Services.AddOpenApi("v1", options =>
@@ -116,7 +141,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // ========== Endpoints ==========
-app.MapHealthEndpoints();
+app.MapHealthEndpoints(healthCheckOptions);
 
 var versionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(1, 0))

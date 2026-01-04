@@ -37,9 +37,16 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
     {
         try
         {
+            using var scope = _logger.BeginScope(new Dictionary<string, object>
+            {
+                ["UserId"] = _userContext.UserId ?? "anonymous",
+                ["CvId"] = request.CvId
+            });
+
             var cvResult = await _cvRepository.GetByIdAsync(request.CvId, cancellationToken);
             if (cvResult.IsFailure)
             {
+                _logger.LogWarning("CV not found for matching: {CvId}", request.CvId);
                 return Result<MatchCvResult>.Failure(cvResult.Errors, cvResult.Type);
             }
             var cvDocument = cvResult.Value!;
