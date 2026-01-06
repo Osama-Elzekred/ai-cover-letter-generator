@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace CoverLetter.Api.Endpoints;
 
@@ -24,13 +25,22 @@ public static class HealthEndpoints
     .WithTags("Health")
     .Produces<object>(StatusCodes.Status200OK);
 
-    if (healthCheckOptions != null)
+    app.MapGet("/health/ready", async (HealthCheckService healthCheckService) =>
     {
-      app.MapHealthChecks("/health/ready", healthCheckOptions)
-      .WithSummary("Check API dependencies")
-      .WithDescription("Returns the status of API dependencies (memory cache, LaTeX compiler)")
-      .WithTags("Health");
-    }
+      var report = await healthCheckService.CheckHealthAsync(check => check.Tags.Contains("dependency"));
+      return Results.Ok(new
+      {
+        status = report.Status.ToString(),
+        checks = report.Entries.Select(e => new
+        {
+          name = e.Key,
+          status = e.Value.Status.ToString(),
+          description = e.Value.Description
+        })
+      });
+    })
+    .WithSummary("Check API dependencies")
+    .WithTags("Health");
 
     return app;
   }
