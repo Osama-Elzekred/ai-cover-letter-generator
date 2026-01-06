@@ -1,9 +1,8 @@
+using CoverLetter.Application.Common.Extensions;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
-using CoverLetter.Domain.Entities;
 using MediatR;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Application.UseCases.CustomizeCv;
@@ -28,9 +27,8 @@ public sealed class CustomizeCvHandler(
     {
         try
         {
-            using var scope = logger.BeginScope(new Dictionary<string, object>
+            using var scope = logger.BeginHandlerScope(userContext, "CustomizeCv", new()
             {
-                ["UserId"] = userContext.UserId ?? "anonymous",
                 ["CvId"] = request.CvId,
                 ["HasCustomPrompt"] = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate)
             });

@@ -1,3 +1,4 @@
+using CoverLetter.Application.Common.Extensions;
 using CoverLetter.Application.Common.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -33,9 +34,8 @@ public sealed class CustomPromptService : ICustomPromptService
     if (userId == null)
       return Task.FromResult<string?>(null);
 
-    using var scope = _logger.BeginScope(new Dictionary<string, object>
+    using var scope = _logger.BeginHandlerScope(_userContext, "GetUserPrompt", new()
     {
-      ["UserId"] = userId,
       ["PromptType"] = type.ToString()
     });
 
