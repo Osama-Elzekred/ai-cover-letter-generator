@@ -89,8 +89,8 @@ public static class SettingsEndpoints
     var cacheKey = cacheKeyBuilder.UserApiKey(userId);
     cache.Set(cacheKey, request.ApiKey, new MemoryCacheEntryOptions
     {
-      AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration,
-      Size = 1
+      AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration
+      // Size not needed when SizeLimit is disabled
     });
 
     var response = new SaveApiKeyResponse(
@@ -199,7 +199,11 @@ public static class SettingsEndpoints
       return Result<SavePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
 
     var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
-    cache.Set(cacheKey, request.Prompt, ApiKeyCacheDuration);
+    cache.Set(cacheKey, request.Prompt, new MemoryCacheEntryOptions
+    {
+      AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration
+      // Size not needed when SizeLimit is disabled
+    });
 
     var response = new SavePromptResponse(
         Message: $"Custom prompt for {promptType} saved successfully",

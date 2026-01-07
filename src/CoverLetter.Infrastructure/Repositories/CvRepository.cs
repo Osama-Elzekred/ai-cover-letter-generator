@@ -32,8 +32,8 @@ public sealed class CvRepository(
         var cacheKey = cacheKeyBuilder.CvKey(document.Id);
         var cacheOptions = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = CacheDuration,
-            Size = 1
+            AbsoluteExpirationRelativeToNow = CacheDuration
+            // Size not needed when SizeLimit is disabled
         };
 
         cache.Set(cacheKey, document, cacheOptions);

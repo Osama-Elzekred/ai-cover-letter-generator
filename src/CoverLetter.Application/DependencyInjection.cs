@@ -29,7 +29,8 @@ public static class DependencyInjection
         // Register memory cache for idempotency
         services.AddMemoryCache(options =>
         {
-            options.SizeLimit = 100; // Limit to 100 cached responses
+            // SizeLimit removed - cache can grow unbounded
+            // TODO: Re-enable when moving to real database with proper cache size management
         });
 
         // Register pipeline behaviors (order matters!)

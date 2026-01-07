@@ -336,26 +336,6 @@ export async function getPromptTemplates(): Promise<{
 }
 
 /**
- * Preview a filled prompt template
- */
-export async function previewPrompt(promptType: 'CvCustomization' | 'CoverLetter' | 'MatchAnalysis'): Promise<{
-  type: string;
-  preview: string;
-  estimatedTokens: number;
-}> {
-  const response = await fetchWithRetry(`${BASE_URL}/prompts/preview?promptType=${promptType}`, {
-    method: 'GET',
-  });
-  
-  if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new ApiClientError(response.status, error);
-  }
-  
-  return await response.json();
-}
-
-/**
  * Save custom prompt for a specific type
  */
 export async function saveCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis', prompt: string): Promise<void> {

@@ -23,7 +23,7 @@ public sealed class MemoryCacheHealthCheck : IHealthCheck
       var testKey = "health_check_test";
       var testValue = DateTime.UtcNow;
 
-      _cache.Set(testKey, testValue, new MemoryCacheEntryOptions { Size = 1 });
+      _cache.Set(testKey, testValue, new MemoryCacheEntryOptions());
       var success = _cache.TryGetValue(testKey, out var cached) &&
                     cached is DateTime cachedTime &&
                     cachedTime == testValue;
