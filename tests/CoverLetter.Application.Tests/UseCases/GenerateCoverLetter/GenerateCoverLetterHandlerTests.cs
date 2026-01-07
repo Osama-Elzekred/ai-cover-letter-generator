@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using CoverLetter.Domain.Common;
 
 namespace CoverLetter.Application.Tests.UseCases.GenerateCoverLetter;
 
@@ -14,7 +15,9 @@ namespace CoverLetter.Application.Tests.UseCases.GenerateCoverLetter;
 public class GenerateCoverLetterHandlerTests
 {
   private readonly ILlmService _llmService;
-  private readonly IMemoryCache _cache;
+  private readonly ICvRepository _cvRepository;
+  private readonly IPromptRegistry _promptRegistry;
+  private readonly ICustomPromptService _customPromptService;
   private readonly IUserContext _userContext;
   private readonly ILogger<GenerateCoverLetterHandler> _logger;
   private readonly GenerateCoverLetterHandler _handler;
@@ -22,7 +25,9 @@ public class GenerateCoverLetterHandlerTests
   public GenerateCoverLetterHandlerTests()
   {
     _llmService = Substitute.For<ILlmService>();
-    _cache = Substitute.For<IMemoryCache>();
+    _cvRepository = Substitute.For<ICvRepository>();
+    _promptRegistry = Substitute.For<IPromptRegistry>();
+    _customPromptService = Substitute.For<ICustomPromptService>();
     _userContext = Substitute.For<IUserContext>();
     _logger = Substitute.For<ILogger<GenerateCoverLetterHandler>>();
 
@@ -30,7 +35,15 @@ public class GenerateCoverLetterHandlerTests
     _userContext.UserId.Returns((string?)null);
     _userContext.GetUserApiKey().Returns((string?)null);
 
-    _handler = new GenerateCoverLetterHandler(_llmService, _cache, _userContext, _logger);
+    // Default prompt registry behavior
+    _promptRegistry.GetPrompt(PromptType.CoverLetter, Arg.Any<Dictionary<string, string>>())
+      .Returns(Result.Success("Default prompt: Job: {JobDescription} CV: {CvText}"));
+
+    // No saved custom prompt by default
+    _customPromptService.GetUserPromptAsync(PromptType.CoverLetter, Arg.Any<CancellationToken>())
+      .Returns((string?)null);
+
+    _handler = new GenerateCoverLetterHandler(_llmService, _cvRepository, _userContext, _promptRegistry, _customPromptService, _logger);
   }
 
   [Fact]
@@ -112,9 +125,9 @@ public class GenerateCoverLetterHandlerTests
 
     // Assert
     capturedPrompt.Should().NotBeNull();
-    capturedPrompt.Should().Contain("Custom template");
-    capturedPrompt.Should().Contain("Developer role");
-    capturedPrompt.Should().Contain("My CV");
+    capturedPrompt!.Should().Contain("Default prompt");
+    capturedPrompt.Should().Contain("ADDITIONAL INSTRUCTIONS:");
+    capturedPrompt.Should().Contain(customTemplate);
   }
 
   [Fact]
@@ -140,5 +153,62 @@ public class GenerateCoverLetterHandlerTests
         Arg.Any<string>(),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>());
+  }
+
+  [Fact]
+  public async Task Handle_CustomPrompt_AppendMode_AppendsToDefault()
+  {
+    // Arrange
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "Senior .NET Developer",
+        CvText: "Experienced in microservices",
+        CustomPromptTemplate: "Please emphasize system design and distributed systems.",
+        PromptMode: PromptMode.Append
+    );
+
+    string? capturedPrompt = null;
+    _llmService.GenerateAsync(
+        Arg.Do<string>(p => capturedPrompt = p),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
+        .Returns(new LlmResponse("Content", "model", 10, 20));
+
+    // Act
+    await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    capturedPrompt.Should().NotBeNull();
+    capturedPrompt!.Should().Contain("Default prompt");
+    capturedPrompt.Should().Contain("ADDITIONAL INSTRUCTIONS:");
+    capturedPrompt.Should().Contain("system design and distributed systems");
+  }
+
+  [Fact]
+  public async Task Handle_CustomPrompt_OverrideMode_UsesCustomOnly()
+  {
+    // Arrange
+    var custom = "Cover letter for {JobDescription} using CV {CvText}";
+    var command = new GenerateCoverLetterCommand(
+        JobDescription: "Backend Engineer",
+        CvText: "5+ years in C#",
+        CustomPromptTemplate: custom,
+        PromptMode: PromptMode.Override
+    );
+
+    string? capturedPrompt = null;
+    _llmService.GenerateAsync(
+        Arg.Do<string>(p => capturedPrompt = p),
+        Arg.Any<LlmGenerationOptions>(),
+        Arg.Any<CancellationToken>())
+        .Returns(new LlmResponse("Content", "model", 10, 20));
+
+    // Act
+    await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    capturedPrompt.Should().NotBeNull();
+    capturedPrompt!.Should().Contain("Cover letter for Backend Engineer using CV 5+ years in C#");
+    capturedPrompt.Should().NotContain("ADDITIONAL INSTRUCTIONS:");
+    capturedPrompt.Should().NotContain("Default prompt");
   }
 }

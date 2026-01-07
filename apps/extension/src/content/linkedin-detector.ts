@@ -317,6 +317,27 @@ function renderResumeTab(): string {
              <button class="mode-btn ${cvPromptMode === 0 ? 'active' : ''}" data-mode="0">Append</button>
              <button class="mode-btn ${cvPromptMode === 1 ? 'active' : ''}" data-mode="1">Override</button>
           </div>
+          <div style="font-size: 11px; color: #64748b; margin: 8px 0; line-height: 1.4;">
+            <strong>Append:</strong> Add extra instructions to default prompt (LaTeX template unchanged)<br>
+            <strong>Override:</strong> Use only the custom prompt you type here (ignores Settings)
+            ${cvPromptMode === 1 ? `
+            <div style="margin-top: 8px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+              <div style="font-weight: 600; color: #334155; font-size: 11px; margin-bottom: 6px;">Required placeholders (Override):</div>
+              <pre style="margin: 0; font-size: 11px; color: #334155; white-space: pre-wrap;">
+JOB DESCRIPTION:
+{JobDescription}
+
+CANDIDATE INFORMATION:
+{CvText}
+
+{ConfirmedSkills}
+
+LATEX STRUCTURE TEMPLATE:
+(put your LaTeX template code here)
+              </pre>
+            </div>
+            ` : ''}
+          </div>
           <textarea id="cv-custom-prompt" placeholder="e.g. Focus on my cloud experience or keep it under 1 page..."></textarea>
         </div>
       ` : ''}
@@ -393,6 +414,23 @@ function renderLetterTab(): string {
           <div class="mode-selector">
              <button class="mode-btn ${clPromptMode === 0 ? 'active' : ''}" data-mode="0">Append</button>
              <button class="mode-btn ${clPromptMode === 1 ? 'active' : ''}" data-mode="1">Override</button>
+          </div>
+          <div style="font-size: 11px; color: #64748b; margin: 8px 0; line-height: 1.4;">
+            <strong>Append:</strong> Add extra instructions to default prompt<br>
+            <strong>Override:</strong> Use only the custom prompt you type here (ignores Settings)
+            ${clPromptMode === 1 ? `
+            <div style="margin-top: 8px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+              <div style="font-weight: 600; color: #334155; font-size: 11px; margin-bottom: 6px;">Required placeholders (Override):</div>
+              <pre style="margin: 0; font-size: 11px; color: #334155; white-space: pre-wrap;">
+JOB DESCRIPTION:
+{JobDescription}
+
+CANDIDATE'S CV:
+{CvText}
+
+              </pre>
+            </div>
+            ` : ''}
           </div>
           <textarea id="cl-custom-prompt" placeholder="e.g. Mention I worked with their lead engineer before..."></textarea>
         </div>

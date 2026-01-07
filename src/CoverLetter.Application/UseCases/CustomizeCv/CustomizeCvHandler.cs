@@ -62,30 +62,79 @@ public sealed class CustomizeCvHandler(
 
             string finalPrompt;
 
-            // Priority: request CustomPromptTemplate > saved custom prompt > default
-            var effectiveCustomPrompt = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate)
-                ? request.CustomPromptTemplate
-                : savedCustomPrompt;
+            // Check if user provided inline prompt (toggle was enabled)
+            var hasInlinePrompt = !string.IsNullOrWhiteSpace(request.CustomPromptTemplate);
 
-            if (request.PromptMode == PromptMode.Override && !string.IsNullOrWhiteSpace(effectiveCustomPrompt))
+            if (hasInlinePrompt)
             {
-                // Simple override with variable replacement
-                finalPrompt = variables.Aggregate(effectiveCustomPrompt, (current, variable) =>
+                // Toggle was ON - user provided inline prompt for this request
+                // Priority: inline > default
+                if (request.PromptMode == PromptMode.Override)
+                {
+                    // Override mode: Use inline prompt entirely, ignore saved
+                    logger.LogInformation("Using inline prompt in Override mode (full replacement)");
+
+                    var overrideVariables = new Dictionary<string, string>
+                    {
+                        { "JobDescription", variables["JobDescription"] ?? "" },
+                        { "CvText", variables["CvText"] ?? "" },
+                        { "ConfirmedSkills", variables["ConfirmedSkills"] ?? "" }
+                    };
+
+                    finalPrompt = overrideVariables.Aggregate(request.CustomPromptTemplate!, (current, variable) =>
+                        current.Replace("{" + variable.Key + "}", variable.Value));
+                }
+                else
+                {
+                    // Append mode: Use saved prompt as base, append inline as additional instructions
+                    logger.LogInformation("Using saved/default prompt with inline instructions appended");
+
+                    if (!string.IsNullOrWhiteSpace(savedCustomPrompt))
+                    {
+                        // Use saved prompt as base, append inline
+                        var basePrompt = savedCustomPrompt;
+                        finalPrompt = variables.Aggregate(basePrompt, (current, variable) =>
+                            current.Replace("{" + variable.Key + "}", variable.Value)) +
+                            $"\n\n### ADDITIONAL USER INSTRUCTIONS:\n{request.CustomPromptTemplate}";
+                    }
+                    else
+                    {
+                        // No saved prompt, use default + append inline
+                        var promptResult = promptRegistry.GetPrompt(PromptType.CvCustomization, variables);
+                        if (promptResult.IsFailure)
+                        {
+                            return Result<CustomizeCvResult>.Failure(promptResult.Errors, promptResult.Type);
+                        }
+                        finalPrompt = promptResult.Value! + $"\n\n### ADDITIONAL USER INSTRUCTIONS:\n{request.CustomPromptTemplate}";
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(savedCustomPrompt))
+            {
+                // Toggle was OFF - no inline prompt, but saved prompt exists
+                // Use saved prompt as the base structure (like Override mode)
+                logger.LogInformation("Using saved prompt from Settings (toggle disabled)");
+
+                var overrideVariables = new Dictionary<string, string>
+                {
+                    { "JobDescription", variables["JobDescription"] },
+                    { "CvText", variables["CvText"] },
+                    { "ConfirmedSkills", variables["ConfirmedSkills"] }
+                };
+
+                finalPrompt = overrideVariables.Aggregate(savedCustomPrompt, (current, variable) =>
                     current.Replace("{" + variable.Key + "}", variable.Value));
             }
             else
             {
+                // No custom prompt at all (toggle off, no saved) - use default
+                logger.LogInformation("Using default prompt template");
                 var promptResult = promptRegistry.GetPrompt(PromptType.CvCustomization, variables);
                 if (promptResult.IsFailure)
                 {
                     return Result<CustomizeCvResult>.Failure(promptResult.Errors, promptResult.Type);
                 }
                 finalPrompt = promptResult.Value!;
-
-                if (!string.IsNullOrWhiteSpace(effectiveCustomPrompt))
-                {
-                    finalPrompt += $"\n\n### ADDITIONAL USER INSTRUCTIONS:\n{effectiveCustomPrompt}";
-                }
             }
 
             var userApiKey = userContext.GetUserApiKey();
@@ -93,6 +142,12 @@ public sealed class CustomizeCvHandler(
                 SystemMessage: "You are a professional LaTeX CV expert. Respond ONLY with raw LaTeX code, no extra text, no markdown fences.",
                 ApiKey: userApiKey
             );
+
+            if (string.IsNullOrWhiteSpace(finalPrompt))
+            {
+                logger.LogError("Final prompt is empty after processing");
+                return Result<CustomizeCvResult>.Failure("Failed to build prompt for CV customization");
+            }
 
             logger.LogInformation("Generating customized LaTeX for CV {CvId}", request.CvId);
             var llmResponse = await llmService.GenerateAsync(finalPrompt, llmOptions, cancellationToken);

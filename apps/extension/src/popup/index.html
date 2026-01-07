@@ -134,6 +134,10 @@
           </div>
           <div class="form-group">
             <label>Prompt Mode</label>
+            <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+              <strong>Append:</strong> Add instructions to default prompt<br>
+              <strong>Override:</strong> Use saved custom prompt from Settings (for LaTeX edits)
+            </p>
             <div class="radio-group">
               <div class="radio-option">
                 <input type="radio" name="promptMode" value="0" id="modeAppend" checked>
@@ -141,7 +145,7 @@
               </div>
               <div class="radio-option">
                 <input type="radio" name="promptMode" value="1" id="modeReplace">
-                <label for="modeReplace" class="radio-label">Replace</label>
+                <label for="modeReplace" class="radio-label">Override</label>
               </div>
             </div>
           </div>
