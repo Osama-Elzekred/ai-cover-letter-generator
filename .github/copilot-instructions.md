@@ -1,54 +1,81 @@
 # Copilot Instructions
 
 ## Project Purpose
-This is an **educational project** - the primary goal is learning concepts and tools.
-- Always explain the "why" behind decisions
-- Show what experts do in production systems
-- List pros/cons for every approach
-- Mention alternatives worth exploring
-- Connect concepts to real-world systems (Netflix, Uber, etc.)
-- Don't take shortcuts - implement patterns even if "overkill" for learning value
+This is an educational project — the goal is learning advanced backend patterns and tooling.
+- Explain the "why" behind decisions; include pros/cons and alternatives
+- Prefer production-grade patterns even if "overkill" for learning value
+- Connect concepts to real-world systems (e.g., Netflix/Uber patterns)
 
-## Project Structure
-- **Default working directory**: `src/CoverLetter.Api` - Always run terminal commands from here
-- **Run commands**: Always use full path when executing commands:
+## Big-Picture Architecture
+- Onion layers: Domain → Application → Infrastructure → Api. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/FOLDER-STRUCTURE-EXPLAINED.md](docs/FOLDER-STRUCTURE-EXPLAINED.md).
+- Minimal APIs with MediatR and pipeline behaviors; `Result<T>` drives HTTP via extension members in [src/CoverLetter.Api/Extensions/ResultExtensions.cs](src/CoverLetter.Api/Extensions/ResultExtensions.cs).
+- External integrations (Groq LLM, CV parsing, LaTeX) live in Infrastructure with DI registered in [src/CoverLetter.Infrastructure/DependencyInjection.cs](src/CoverLetter.Infrastructure/DependencyInjection.cs).
+- Versioned routes via URL segments; v1 grouped under `/api/v{version}` in [src/CoverLetter.Api/Program.cs](src/CoverLetter.Api/Program.cs).
+
+## Request & Error Flow
+- Flow: Serilog request logging → GlobalExceptionHandler → Endpoint → MediatR → Behaviors (validation/logging) → Handler → `Result<T>` → HTTP.
+- GlobalExceptionHandler returns RFC-compliant `ProblemDetails` and logs at correct levels. See [src/CoverLetter.Api/Middleware/GlobalExceptionHandler.cs](src/CoverLetter.Api/Middleware/GlobalExceptionHandler.cs).
+- Business failures use `Result<T>` statuses mapped in ResultExtensions. Validation uses FluentValidation in Application.
+
+## Critical Headers & Idempotency
+- All requests support anonymous `X-User-Id` via [src/CoverLetter.Api/Middleware/UserContextMiddleware.cs](src/CoverLetter.Api/Middleware/UserContextMiddleware.cs) and [src/CoverLetter.Api/Services/UserContext.cs](src/CoverLetter.Api/Services/UserContext.cs).
+- Expensive POST endpoints accept `X-Idempotency-Key` and explicitly require rate limiting policy.
+- Example endpoints/patterns in [src/CoverLetter.Api/Endpoints/CoverLetterEndpoints.cs](src/CoverLetter.Api/Endpoints/CoverLetterEndpoints.cs).
+
+## Rate Limiting (BYOK)
+- Policy "ByokPolicy" in [src/CoverLetter.Api/Extensions/RateLimitingExtensions.cs](src/CoverLetter.Api/Extensions/RateLimitingExtensions.cs):
+  - Users with saved API key (BYOK) → unlimited (no limiter)
+  - Without key → sliding window 10 req/min per IP, queue limit 2
+- Endpoints opt-in via `.RequireRateLimiting("ByokPolicy")`; do not apply to health/settings/docs.
+
+## Build, Run, Test
+- Default working directory: `src/CoverLetter.Api`.
+- Use full-path commands:
   - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet run`
   - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet build`
   - `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator/src/CoverLetter.Api" && dotnet test`
-- **Solution-wide operations**: Use `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator" && dotnet build` for building entire solution
+- Solution-wide build: `cd "d:/Projects/Cover Letter Generator/ai-cover-letter-generator" && dotnet build`.
+- VS Code tasks available: build/publish/watch at the workspace root.
 
-## Rules
-- Be **proactive**: anticipate issues (duplication, middleware order, consistency)
-- Check existing code patterns before suggesting new code
-- Apply expert/production-ready solutions by default
-- Trace full request flow before making changes
-- Never duplicate logic (logging, error handling, validation)
+## Configuration & Secrets
+- Groq settings section `Groq` bound in Infrastructure; set user-secret `Groq:ApiKey` for development.
+- App config: see [src/CoverLetter.Api/appsettings.json](src/CoverLetter.Api/appsettings.json) and [src/CoverLetter.Infrastructure/LlmProviders/Groq/GroqSettings.cs](src/CoverLetter.Infrastructure/LlmProviders/Groq/GroqSettings.cs) for `BaseUrl`, `Model`, `Temperature`, `MaxTokens`.
+- Scalar docs served in development at `/scalar/v1` as configured in [src/CoverLetter.Api/Program.cs](src/CoverLetter.Api/Program.cs).
 
-## Stack
-- .NET 10, C# 14, Minimal APIs, MediatR, FluentValidation, Refit, Serilog
-- Onion Architecture: Domain → Application → Infrastructure → Api
-- Result<T> pattern for business errors, exceptions for unexpected errors
+## Endpoints & Patterns
+- Map versioned groups in `Program.cs`; feature endpoints organized per file under [src/CoverLetter.Api/Endpoints](src/CoverLetter.Api/Endpoints).
+- Endpoint → MediatR command → `Result<T>` → `ToHttpResult()`; avoid try/catch, rely on global handler.
+- For rate-limited features, include `.RequireRateLimiting("ByokPolicy")` and accept idempotency header.
 
 ## Logging
-- Log **once at the boundary** (GlobalExceptionHandler for errors, Serilog for requests)
-- Validation = Debug level (expected), Unexpected errors = Error level
-- No duplicate logs across layers
+- Log once at boundaries: Serilog request logging and GlobalExceptionHandler.
+- Validation and expected client errors at Debug; unexpected errors at Error.
+- Avoid duplicate logs in handlers or infrastructure.
 
 ## Middleware Order
 ```csharp
-app.UseSerilogRequestLogging(); // FIRST - sees final status
-app.UseExceptionHandler();       // Converts exceptions to responses
+app.UseSerilogRequestLogging(); // FIRST — logs final status
+app.UseExceptionHandler();      // Converts exceptions to ProblemDetails
+app.UseCors(...);
+app.UseMiddleware<UserContextMiddleware>();
+app.UseRateLimiter();
 ```
 
 ## Error Handling
-- FluentValidation → ValidationException → GlobalExceptionHandler → 400
-- Business errors → Result<T> → ResultExtensions → appropriate status
-- Unexpected → GlobalExceptionHandler → 500 with logging
+- FluentValidation → `ValidationException` → global handler → 400
+- Business errors → `Result<T>` → [ResultExtensions](src/CoverLetter.Api/Extensions/ResultExtensions.cs) → appropriate 4xx/409
+- Unexpected → global handler → 5xx with `traceId`
+
+## Docs & HTTP Tests
+- HTTP test files in [src/CoverLetter.Api/http-tests](src/CoverLetter.Api/http-tests); example requests for cover letters/CV/settings/health.
+- API docs: open [src/CoverLetter.Api/wwwroot/scalar](src/CoverLetter.Api/wwwroot/scalar); served at `/scalar/v1` in Development.
 
 ## DO NOT
 - Duplicate logging across layers
 - Log validation at Error level
-- Add try-catch when GlobalExceptionHandler handles it
+- Add try-catch where GlobalExceptionHandler handles it
 - Suggest code without checking existing patterns
-- Use .Result or .Wait()
+- Use `.Result` or `.Wait()`
+
+Feedback: If any section feels unclear or incomplete (e.g., secrets naming vs environment variables, or extension/API contract details), tell me which part and I’ll refine it.
 

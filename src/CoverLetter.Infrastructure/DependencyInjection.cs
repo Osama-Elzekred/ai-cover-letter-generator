@@ -1,6 +1,8 @@
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Infrastructure.CvParsers;
 using CoverLetter.Infrastructure.LlmProviders.Groq;
+using CoverLetter.Infrastructure.Repositories;
+using CoverLetter.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,10 +31,10 @@ public static class DependencyInjection
     services.AddScoped<ICvParserService, CvParserService>();
 
     // Register CV repository
-    services.AddScoped<ICvRepository, CoverLetter.Infrastructure.Repositories.CvRepository>();
+    services.AddScoped<ICvRepository, CvRepository>();
 
     // Register LaTeX compiler service
-    services.AddScoped<ILatexCompilerService, CoverLetter.Infrastructure.Services.LatexCompilerService>();
+    services.AddScoped<ILatexCompilerService, LatexCompilerService>();
 
     return services;
   }
