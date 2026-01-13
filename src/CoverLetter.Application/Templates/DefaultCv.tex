@@ -6,6 +6,7 @@
 \usepackage{titlesec}
 \usepackage{xcolor}
 \usepackage{amssymb}
+\usepackage{ifthen}
 
 \pagestyle{empty}
 
@@ -20,6 +21,17 @@
 % emulating the 'resume' header style
 \newcommand{\name}[1]{{\centerline{\Huge\bfseries #1}}\vspace{0.7em}}
 \newcommand{\address}[1]{{\centerline{#1}}\vspace{0.2em}}
+
+% Project entry with optional links
+% Usage: \project{Project Name}{Description}{GitHub URL}{Live Demo URL}
+% Leave URL empty if not applicable
+\newcommand{\project}[4]{%
+  \textbf{#1}%
+  \ifthenelse{\equal{#3}{}}{}{\ \textbar\ \href{#3}{\color{blue}\underline{GitHub}}}%
+  \ifthenelse{\equal{#4}{}}{}{\ \textbar\ \href{#4}{\color{blue}\underline{Live Demo}}}%
+  \\
+  #2%
+}
 
 \begin{document}
 
@@ -49,7 +61,9 @@ Overall Grade/GPA: X.XX
 
 \section{Projects}
 \begin{itemize}[noitemsep, topsep=0pt, leftmargin=0.15in]
-    \item \textbf{Project Name} --- Description and tech stack.
+    \item \project{Project Name}{Description and tech stack}{https://github.com/username/repo}{https://live-demo.com}
+    \item \project{Another Project}{Brief description}{https://github.com/username/repo}{}
+    \item \project{Tool or Library}{Description only}{}{https://example-demo.com}
 \end{itemize}
 
 \section{Extra-Curricular Activities}
