@@ -45,6 +45,7 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
         using var document = PdfDocument.Open(fileContent);
         var pageCount = document.NumberOfPages;
         var textBuilder = new System.Text.StringBuilder();
+        var hyperlinks = new List<Hyperlink>();
 
         foreach (var page in document.GetPages())
         {
@@ -60,6 +61,10 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
 
           textBuilder.AppendLine(); // Add newline between pages
           textBuilder.AppendLine();
+
+          // Extract hyperlinks from page annotations
+          var pageHyperlinks = ExtractHyperlinksFromPage(page);
+          hyperlinks.AddRange(pageHyperlinks);
         }
 
         var extractedText = textBuilder.ToString().Trim();
@@ -81,11 +86,12 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
             fileName: fileName,
             format: CvFormat.Pdf,
             extractedText: extractedText,
+            hyperlinks: hyperlinks,
             metadata: metadata);
 
         logger.LogInformation(
-            "Successfully parsed PDF: {FileName}, Pages: {PageCount}, Characters: {CharCount}",
-            fileName, pageCount, metadata.CharacterCount);
+            "Successfully parsed PDF: {FileName}, Pages: {PageCount}, Characters: {CharCount}, Hyperlinks: {HyperlinkCount}",
+            fileName, pageCount, metadata.CharacterCount, hyperlinks.Count);
 
         return Result<CvDocument>.Success(cvDocument);
       }, cancellationToken);
@@ -221,5 +227,107 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
     text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
 
     return text.Trim();
+  }
+
+  /// <summary>
+  /// Extracts hyperlinks from PDF page annotations and text.
+  /// Includes link annotations and text-based URLs (email, http/https).
+  /// </summary>
+  private static List<Hyperlink> ExtractHyperlinksFromPage(UglyToad.PdfPig.Content.Page page)
+  {
+    var hyperlinks = new List<Hyperlink>();
+    var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    // Extract from link annotations
+    var annotations = page.GetAnnotations();
+    if (annotations != null && annotations.Any())
+    {
+      foreach (var annotation in annotations)
+      {
+        if (annotation.Type == UglyToad.PdfPig.Annotations.AnnotationType.Link)
+        {
+          try
+          {
+            var annotDict = annotation.AnnotationDictionary;
+
+            // Try to get URI from action dictionary
+            if (annotDict.TryGet(UglyToad.PdfPig.Tokens.NameToken.A, out var actionToken))
+            {
+              if (actionToken is UglyToad.PdfPig.Tokens.DictionaryToken actionDict)
+              {
+                if (actionDict.TryGet(UglyToad.PdfPig.Tokens.NameToken.Create("URI"), out var uriToken))
+                {
+                  var url = uriToken.ToString().Trim();
+                  if (!string.IsNullOrWhiteSpace(url) && seenUrls.Add(url))
+                  {
+                    hyperlinks.Add(new Hyperlink(
+                        Url: url,
+                        Type: CategorizeUrl(url)));
+                  }
+                }
+              }
+            }
+          }
+          catch
+          {
+            // Skip malformed annotations
+          }
+        }
+      }
+    }
+
+    // Extract URLs from text content (email, http/https)
+    var text = page.Text;
+    var urlPatterns = new[]
+    {
+      @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", // Email
+      @"\bhttps?://[^\s<>""']+\b" // HTTP/HTTPS URLs
+    };
+
+    foreach (var pattern in urlPatterns)
+    {
+      var matches = System.Text.RegularExpressions.Regex.Matches(text, pattern);
+      foreach (System.Text.RegularExpressions.Match match in matches)
+      {
+        var url = match.Value;
+        if (seenUrls.Add(url))
+        {
+          // Add mailto: prefix for emails
+          var normalizedUrl = url.Contains('@') && !url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
+              ? $"mailto:{url}"
+              : url;
+
+          hyperlinks.Add(new Hyperlink(
+              Url: normalizedUrl,
+              DisplayText: url,
+              Type: CategorizeUrl(normalizedUrl)));
+        }
+      }
+    }
+
+    return hyperlinks;
+  }
+
+  /// <summary>
+  /// Categorizes URL type for better context in prompts.
+  /// </summary>
+  private static HyperlinkType CategorizeUrl(string url)
+  {
+    if (url.Contains("@") || url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+      return HyperlinkType.Email;
+
+    if (url.Contains("linkedin.com", StringComparison.OrdinalIgnoreCase))
+      return HyperlinkType.LinkedIn;
+
+    if (url.Contains("github.com", StringComparison.OrdinalIgnoreCase))
+      return HyperlinkType.GitHub;
+
+    // Common portfolio domains
+    if (url.Contains("portfolio", StringComparison.OrdinalIgnoreCase) ||
+        url.Contains("behance.com", StringComparison.OrdinalIgnoreCase) ||
+        url.Contains("dribbble.com", StringComparison.OrdinalIgnoreCase))
+      return HyperlinkType.Portfolio;
+
+    return HyperlinkType.General;
   }
 }

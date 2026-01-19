@@ -121,6 +121,7 @@ public sealed class GenerateCoverLetterHandler(
 
   /// <summary>
   /// Resolves CV text from CvId (cache lookup) or uses direct CvText.
+  /// Includes hyperlinks if available.
   /// </summary>
   private async Task<Result<string>> ResolveCvTextAsync(
       GenerateCoverLetterCommand request,
@@ -136,7 +137,30 @@ public sealed class GenerateCoverLetterHandler(
       }
 
       logger.LogDebug("Retrieved CV from repository: {CvId}", request.CvId);
-      return Result<string>.Success(cvResult.Value!.ExtractedText);
+
+      var cvText = cvResult.Value!.ExtractedText;
+
+      // Append hyperlinks to CV text if available
+      if (cvResult.Value.Hyperlinks != null && cvResult.Value.Hyperlinks.Any())
+      {
+        var linksList = new List<string>();
+        foreach (var link in cvResult.Value.Hyperlinks)
+        {
+          var description = link.Type switch
+          {
+            HyperlinkType.Email => "Email",
+            HyperlinkType.LinkedIn => "LinkedIn",
+            HyperlinkType.GitHub => "GitHub",
+            HyperlinkType.Portfolio => "Portfolio",
+            _ => "Link"
+          };
+          linksList.Add($"- {description}: {link.Url}");
+        }
+
+        cvText += $"\n\nContact Links:\n{string.Join("\n", linksList)}";
+      }
+
+      return Result<string>.Success(cvText);
     }
 
     // Fallback to direct CvText (backward compatibility)

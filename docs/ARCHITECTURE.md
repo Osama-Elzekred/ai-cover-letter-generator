@@ -94,6 +94,15 @@ HTTP Response
 - OutboxMessages
 - CoverLetters
 
+### Outbox Pattern Performance
+
+Outbox ensures consistency but can bottleneck. Key optimizations:
+
+1. **Index Reads**: Index `Status` and `CreatedAt` columns
+2. **Batch Updates**: Update statuses in bulk, not row-by-row
+3. **Batch Publishing**: Send messages to broker in groups (50-100)
+4. **Scale Workers**: Run multiple processors; partition by aggregate ID to preserve ordering
+
 ### Observability Stack
 - OpenTelemetry (metrics + traces)
 - Prometheus (scraping)

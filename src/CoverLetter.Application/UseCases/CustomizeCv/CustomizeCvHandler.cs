@@ -2,6 +2,7 @@ using CoverLetter.Application.Common.Extensions;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -50,10 +51,37 @@ public sealed class CustomizeCvHandler(
                 confirmedSkills = $"**CONFIRMED SKILLS**: The user has specifically confirmed they possess the following skills: {keywordsList}. You MUST ensure these are clearly integrated into the CV.";
             }
 
+            // 3. Format hyperlinks for the prompt
+            var hyperlinkSection = "";
+            if (cvDocument.Hyperlinks != null && cvDocument.Hyperlinks.Any())
+            {
+                var linksList = new List<string>();
+                foreach (var link in cvDocument.Hyperlinks)
+                {
+                    var description = link.Type switch
+                    {
+                        HyperlinkType.Email => "Email",
+                        HyperlinkType.LinkedIn => "LinkedIn Profile",
+                        HyperlinkType.GitHub => "GitHub Profile",
+                        HyperlinkType.Portfolio => "Portfolio",
+                        _ => "Link"
+                    };
+
+                    var displayText = !string.IsNullOrWhiteSpace(link.DisplayText)
+                        ? link.DisplayText
+                        : link.Url;
+
+                    linksList.Add($"- {description}: {link.Url}" +
+                        (displayText != link.Url ? $" (Display as: {displayText})" : ""));
+                }
+
+                hyperlinkSection = $"\n\n**HYPERLINKS FROM CV**: The following links must be preserved in the customized CV:\n{string.Join("\n", linksList)}";
+            }
+
             var variables = new Dictionary<string, string>
             {
                 { "JobDescription", request.JobDescription },
-                { "CvText", cvDocument.ExtractedText },
+                { "CvText", cvDocument.ExtractedText + hyperlinkSection },
                 { "ConfirmedSkills", confirmedSkills }
             };
 

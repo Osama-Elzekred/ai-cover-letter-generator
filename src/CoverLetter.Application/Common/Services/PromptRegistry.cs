@@ -58,7 +58,10 @@ Use \documentclass{{article}} only; no external .cls or custom files.
    - Example: "حالا" → "Hala", "北京" → "Beijing", "Москва" → "Moscow"
    - Use English equivalents for company/location names when possible
 3. **NO MARKDOWN**: Do not use Markdown styling like **bold** or *italic*. Use \textbf{} and \textit{}.
-4. **NO WEB LINKS**: Wrap all URLs in \url{...}.
+4. **HYPERLINKS**: Use \href{URL}{display text} for clickable links and \url{URL} for plain URLs.
+   - Preserve all hyperlinks from the candidate information
+   - Ensure email addresses use mailto: format: \href{mailto:email@example.com}{email@example.com}
+   - Use appropriate display text for professional appearance
 
 ### CUSTOMIZATION INSTRUCTIONS:
 1. **KEYWORD INJECTION**: Scan the Job Description for technical skills and weave them into the CV.
@@ -66,6 +69,7 @@ Use \documentclass{{article}} only; no external .cls or custom files.
 3. **OBJECTIVE REWRITE**: Pitch the candidate specifically for the role.
 4. **PRIORITIZATION**: Move the most relevant projects or experiences to the top.
 5. **SKILLS CATEGORIZATION**: Group skills logically into 3-5 professional categories (e.g., Languages, Technologies, Cloud & DevOps).
+6. **HYPERLINK PRESERVATION**: Include all contact links (email, LinkedIn, GitHub, portfolio) prominently in the header.
 
 JOB DESCRIPTION:
 {JobDescription}

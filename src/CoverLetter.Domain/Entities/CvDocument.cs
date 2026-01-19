@@ -11,6 +11,7 @@ public sealed class CvDocument
   public CvFormat Format { get; init; }
   public string ExtractedText { get; init; }
   public string? OriginalContent { get; init; }  // For LaTeX source
+  public IReadOnlyList<Hyperlink> Hyperlinks { get; init; }
   public CvMetadata Metadata { get; init; }
   public DateTime UploadedAt { get; init; }
 
@@ -20,6 +21,7 @@ public sealed class CvDocument
       CvFormat format,
       string extractedText,
       string? originalContent,
+      IReadOnlyList<Hyperlink> hyperlinks,
       CvMetadata metadata)
   {
     Id = id;
@@ -27,6 +29,7 @@ public sealed class CvDocument
     Format = format;
     ExtractedText = extractedText;
     OriginalContent = originalContent;
+    Hyperlinks = hyperlinks;
     Metadata = metadata;
     UploadedAt = DateTime.UtcNow;
   }
@@ -36,6 +39,7 @@ public sealed class CvDocument
       CvFormat format,
       string extractedText,
       string? originalContent = null,
+      IReadOnlyList<Hyperlink>? hyperlinks = null,
       CvMetadata? metadata = null)
   {
     return new CvDocument(
@@ -44,6 +48,7 @@ public sealed class CvDocument
         format: format,
         extractedText: extractedText,
         originalContent: originalContent,
+        hyperlinks: hyperlinks ?? Array.Empty<Hyperlink>(),
         metadata: metadata ?? CvMetadata.Empty
     );
   }
@@ -78,4 +83,26 @@ public sealed record CvMetadata(
 
     return new CvMetadata(pageCount, fileSize, charCount, wordCount);
   }
+}
+
+/// <summary>
+/// Represents a hyperlink extracted from the CV.
+/// </summary>
+public sealed record Hyperlink(
+    string Url,
+    string? DisplayText = null,
+    HyperlinkType Type = HyperlinkType.General
+);
+
+/// <summary>
+/// Categorization of hyperlink types for context.
+/// </summary>
+public enum HyperlinkType
+{
+  General,
+  Email,
+  LinkedIn,
+  GitHub,
+  Portfolio,
+  Other
 }
