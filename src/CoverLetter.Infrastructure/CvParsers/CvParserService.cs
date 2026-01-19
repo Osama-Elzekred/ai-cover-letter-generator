@@ -123,16 +123,18 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
             ResultType.InvalidInput);
       }
 
+      var hyperlinks = ExtractHyperlinksFromText(text);
       var metadata = CvMetadata.FromText(text, fileSize: fileContent.Length);
       var cvDocument = CvDocument.Create(
           fileName: fileName,
           format: CvFormat.PlainText,
           extractedText: text,
+          hyperlinks: hyperlinks,
           metadata: metadata);
 
       logger.LogInformation(
-          "Successfully parsed plain text: {FileName}, Characters: {CharCount}",
-          fileName, metadata.CharacterCount);
+          "Successfully parsed plain text: {FileName}, Characters: {CharCount}, Hyperlinks: {HyperlinkCount}",
+          fileName, metadata.CharacterCount, hyperlinks.Count);
 
       return Result<CvDocument>.Success(cvDocument);
     }
@@ -161,6 +163,7 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
       // For LaTeX, we store both the original source and a simplified text version
       // Future: Implement proper LaTeX-to-text conversion (remove commands, keep content)
       var extractedText = SimplifyLaTeX(latexSource);
+      var hyperlinks = ExtractHyperlinksFromLaTeX(latexSource);
 
       var metadata = CvMetadata.FromText(extractedText, fileSize: fileContent.Length);
       var cvDocument = CvDocument.Create(
@@ -168,11 +171,12 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
           format: CvFormat.LaTeX,
           extractedText: extractedText,
           originalContent: latexSource, // Preserve source for future customization
+          hyperlinks: hyperlinks,
           metadata: metadata);
 
       logger.LogInformation(
-          "Successfully parsed LaTeX: {FileName}, Characters: {CharCount}",
-          fileName, metadata.CharacterCount);
+          "Successfully parsed LaTeX: {FileName}, Characters: {CharCount}, Hyperlinks: {HyperlinkCount}",
+          fileName, metadata.CharacterCount, hyperlinks.Count);
 
       return Result<CvDocument>.Success(cvDocument);
     }
@@ -233,7 +237,7 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
   /// Extracts hyperlinks from PDF page annotations and text.
   /// Includes link annotations and text-based URLs (email, http/https).
   /// </summary>
-  private static List<Hyperlink> ExtractHyperlinksFromPage(UglyToad.PdfPig.Content.Page page)
+  private List<Hyperlink> ExtractHyperlinksFromPage(UglyToad.PdfPig.Content.Page page)
   {
     var hyperlinks = new List<Hyperlink>();
     var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -257,8 +261,13 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
               {
                 if (actionDict.TryGet(UglyToad.PdfPig.Tokens.NameToken.Create("URI"), out var uriToken))
                 {
-                  var url = uriToken.ToString().Trim();
-                  if (!string.IsNullOrWhiteSpace(url) && seenUrls.Add(url))
+                  var url = uriToken?.ToString()?.Trim();
+                  if (string.IsNullOrWhiteSpace(url)) continue;
+
+                  // Clean up PDF token formatting (remove wrapping parentheses, angle brackets, etc.)
+                  url = url.Trim('(', ')', '<', '>', '[', ']', ' ');
+                  
+                    if (!string.IsNullOrWhiteSpace(url) && seenUrls.Add(url))
                   {
                     hyperlinks.Add(new Hyperlink(
                         Url: url,
@@ -278,30 +287,12 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
 
     // Extract URLs from text content (email, http/https)
     var text = page.Text;
-    var urlPatterns = new[]
+    var textHyperlinks = ExtractHyperlinksFromText(text);
+    foreach (var hyperlink in textHyperlinks)
     {
-      @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", // Email
-      @"\bhttps?://[^\s<>""']+\b" // HTTP/HTTPS URLs
-    };
-
-    foreach (var pattern in urlPatterns)
-    {
-      var matches = System.Text.RegularExpressions.Regex.Matches(text, pattern);
-      foreach (System.Text.RegularExpressions.Match match in matches)
+      if (seenUrls.Add(hyperlink.Url))
       {
-        var url = match.Value;
-        if (seenUrls.Add(url))
-        {
-          // Add mailto: prefix for emails
-          var normalizedUrl = url.Contains('@') && !url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
-              ? $"mailto:{url}"
-              : url;
-
-          hyperlinks.Add(new Hyperlink(
-              Url: normalizedUrl,
-              DisplayText: url,
-              Type: CategorizeUrl(normalizedUrl)));
-        }
+        hyperlinks.Add(hyperlink);
       }
     }
 
@@ -329,5 +320,116 @@ public sealed class CvParserService(ILogger<CvParserService> logger) : ICvParser
       return HyperlinkType.Portfolio;
 
     return HyperlinkType.General;
+  }
+
+  /// <summary>
+  /// Extracts hyperlinks from plain text using regex patterns.
+  /// </summary>
+  private static List<Hyperlink> ExtractHyperlinksFromText(string text)
+  {
+    var hyperlinks = new List<Hyperlink>();
+    var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    var urlPatterns = new[]
+    {
+      @"(?<=^|\s|⋄|\(|\||,|;|:)[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", // Email - must start after whitespace or separator
+      @"\bhttps?://[^\s<>""']+\b" // HTTP/HTTPS URLs
+    };
+
+    foreach (var pattern in urlPatterns)
+    {
+      var matches = System.Text.RegularExpressions.Regex.Matches(text, pattern);
+      foreach (System.Text.RegularExpressions.Match match in matches)
+      {
+        var url = match.Value;
+        
+        // Filter out invalid emails (e.g., "Egyptosamaelzekred@gmail.com")
+        if (url.Contains('@'))
+        {
+          var localPart = url.Split('@')[0];
+          // Skip if local part is suspiciously long (likely a word concatenated with email)
+          if (localPart.Length > 30) continue;
+          
+          // Skip if local part starts with common non-email words
+          var invalidPrefixes = new[] { "egypt", "usa", "canada", "location", "address", "city", "country" };
+          if (invalidPrefixes.Any(prefix => localPart.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            continue;
+        }
+        
+        if (seenUrls.Add(url))
+        {
+          var normalizedUrl = url.Contains('@') && !url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
+              ? $"mailto:{url}"
+              : url;
+
+          hyperlinks.Add(new Hyperlink(
+              Url: normalizedUrl,
+              DisplayText: url,
+              Type: CategorizeUrl(normalizedUrl)));
+        }
+      }
+    }
+
+    return hyperlinks;
+  }
+
+  /// <summary>
+  /// Extracts hyperlinks from LaTeX source.
+  /// Parses \href{url}{text}, \url{url}, and plain URLs.
+  /// </summary>
+  private static List<Hyperlink> ExtractHyperlinksFromLaTeX(string latexSource)
+  {
+    var hyperlinks = new List<Hyperlink>();
+    var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    // Extract \href{url}{text}
+    var hrefMatches = System.Text.RegularExpressions.Regex.Matches(
+        latexSource,
+        @"\\href\{([^}]+)\}\{([^}]+)\}",
+        System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    foreach (System.Text.RegularExpressions.Match match in hrefMatches)
+    {
+      var url = match.Groups[1].Value.Trim();
+      var displayText = match.Groups[2].Value.Trim();
+
+      if (!string.IsNullOrWhiteSpace(url) && seenUrls.Add(url))
+      {
+        hyperlinks.Add(new Hyperlink(
+            Url: url,
+            DisplayText: displayText,
+            Type: CategorizeUrl(url)));
+      }
+    }
+
+    // Extract \url{url}
+    var urlMatches = System.Text.RegularExpressions.Regex.Matches(
+        latexSource,
+        @"\\url\{([^}]+)\}",
+        System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    foreach (System.Text.RegularExpressions.Match match in urlMatches)
+    {
+      var url = match.Groups[1].Value.Trim();
+
+      if (!string.IsNullOrWhiteSpace(url) && seenUrls.Add(url))
+      {
+        hyperlinks.Add(new Hyperlink(
+            Url: url,
+            Type: CategorizeUrl(url)));
+      }
+    }
+
+    // Extract plain URLs from text
+    var textHyperlinks = ExtractHyperlinksFromText(latexSource);
+    foreach (var hyperlink in textHyperlinks)
+    {
+      if (seenUrls.Add(hyperlink.Url))
+      {
+        hyperlinks.Add(hyperlink);
+      }
+    }
+
+    return hyperlinks;
   }
 }

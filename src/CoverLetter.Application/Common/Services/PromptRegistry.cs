@@ -58,10 +58,13 @@ Use \documentclass{{article}} only; no external .cls or custom files.
    - Example: "حالا" → "Hala", "北京" → "Beijing", "Москва" → "Moscow"
    - Use English equivalents for company/location names when possible
 3. **NO MARKDOWN**: Do not use Markdown styling like **bold** or *italic*. Use \textbf{} and \textit{}.
-4. **HYPERLINKS**: Use \href{URL}{display text} for clickable links and \url{URL} for plain URLs.
-   - Preserve all hyperlinks from the candidate information
-   - Ensure email addresses use mailto: format: \href{mailto:email@example.com}{email@example.com}
-   - Use appropriate display text for professional appearance
+4. **CRITICAL - HYPERLINK INTEGRATION**: For each link in the "LINKS TO EMBED" section, find the most semantically similar or relevant existing text in the CV and wrap it with \href{URL}{text}:
+   - Email links → wrap the email address in the header
+   - LinkedIn/GitHub links → wrap profile names or references to these platforms
+   - Portfolio/project links → wrap project names or descriptions that match the URL content
+   - Do NOT add new text; only wrap existing content
+   - Use \href{mailto:email@example.com}{email@example.com} for emails
+   - ALL provided links MUST appear in the final output
 
 ### CUSTOMIZATION INSTRUCTIONS:
 1. **KEYWORD INJECTION**: Scan the Job Description for technical skills and weave them into the CV.
@@ -69,7 +72,6 @@ Use \documentclass{{article}} only; no external .cls or custom files.
 3. **OBJECTIVE REWRITE**: Pitch the candidate specifically for the role.
 4. **PRIORITIZATION**: Move the most relevant projects or experiences to the top.
 5. **SKILLS CATEGORIZATION**: Group skills logically into 3-5 professional categories (e.g., Languages, Technologies, Cloud & DevOps).
-6. **HYPERLINK PRESERVATION**: Include all contact links (email, LinkedIn, GitHub, portfolio) prominently in the header.
 
 JOB DESCRIPTION:
 {JobDescription}
@@ -79,7 +81,7 @@ CANDIDATE INFORMATION:
 
 {ConfirmedSkills}
 
-LATEX STRUCTURE TEMPLATE:
+LATEX STRUCTURE TEMPLATE (this is the styling and layout structure only; replace all placeholder text with actual candidate information):
 {LatexTemplate}
 
 Write the customized raw LaTeX source now:

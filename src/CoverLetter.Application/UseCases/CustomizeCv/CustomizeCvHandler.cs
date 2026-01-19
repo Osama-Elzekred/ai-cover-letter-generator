@@ -43,7 +43,13 @@ public sealed class CustomizeCvHandler(
             }
             var cvDocument = cvResult.Value!;
 
-            // 2. Build the variables
+            // 2. Clean Unicode from job description to prevent LaTeX issues
+            var cleanedJobDescription = System.Text.RegularExpressions.Regex.Replace(
+                request.JobDescription,
+                @"[^\x00-\x7F]", // Remove non-ASCII characters
+                "");
+
+            // 3. Build the variables
             var confirmedSkills = "";
             if (request.SelectedKeywords != null && request.SelectedKeywords.Any())
             {
@@ -67,20 +73,15 @@ public sealed class CustomizeCvHandler(
                         _ => "Link"
                     };
 
-                    var displayText = !string.IsNullOrWhiteSpace(link.DisplayText)
-                        ? link.DisplayText
-                        : link.Url;
-
-                    linksList.Add($"- {description}: {link.Url}" +
-                        (displayText != link.Url ? $" (Display as: {displayText})" : ""));
+                    linksList.Add($"- {description}: {link.Url}");
                 }
 
-                hyperlinkSection = $"\n\n**HYPERLINKS FROM CV**: The following links must be preserved in the customized CV:\n{string.Join("\n", linksList)}";
+                hyperlinkSection = $"\n\n**LINKS TO EMBED**:\n{string.Join("\n", linksList)}";
             }
 
             var variables = new Dictionary<string, string>
             {
-                { "JobDescription", request.JobDescription },
+                { "JobDescription", cleanedJobDescription },
                 { "CvText", cvDocument.ExtractedText + hyperlinkSection },
                 { "ConfirmedSkills", confirmedSkills }
             };
@@ -177,6 +178,8 @@ public sealed class CustomizeCvHandler(
                 return Result<CustomizeCvResult>.Failure("Failed to build prompt for CV customization");
             }
 
+            logger.LogDebug("CV Customization Prompt (Length: {PromptLength} chars):\n{Prompt}",
+                finalPrompt.Length, finalPrompt);
             logger.LogInformation("Generating customized LaTeX for CV {CvId}", request.CvId);
             var llmResponse = await llmService.GenerateAsync(finalPrompt, llmOptions, cancellationToken);
 
