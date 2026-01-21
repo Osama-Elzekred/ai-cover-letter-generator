@@ -1,3 +1,5 @@
+using CoverLetter.Domain.Enums;
+
 namespace CoverLetter.Application.Common.Interfaces;
 
 /// <summary>

@@ -1,8 +1,8 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Domain.Common;
-using CoverLetter.Domain.Entities;
+using CoverLetter.Domain.Enums;
 using MediatR;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -43,13 +43,12 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
                 ["CvId"] = request.CvId
             });
 
-            var cvResult = await _cvRepository.GetByIdAsync(request.CvId, cancellationToken);
-            if (cvResult.IsFailure)
+            var cv = await _cvRepository.GetByIdAsync(request.CvId, cancellationToken);
+            if (cv is null)
             {
                 _logger.LogWarning("CV not found for matching: {CvId}", request.CvId);
-                return Result<MatchCvResult>.Failure(cvResult.Errors, cvResult.Type);
+                return Result<MatchCvResult>.Failure($"CV not found: {request.CvId}", ResultType.NotFound);
             }
-            var cvDocument = cvResult.Value!;
 
             // Fetch saved custom prompt from settings if available
             var savedCustomPrompt = await _customPromptService.GetUserPromptAsync(PromptType.MatchAnalysis, cancellationToken);
@@ -57,7 +56,7 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
             var variables = new Dictionary<string, string>
             {
                 { "JobDescription", request.JobDescription },
-                { "CvText", cvDocument.ExtractedText }
+                { "CvText", cv.Content }
             };
 
             var promptResult = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);

@@ -1,14 +1,8 @@
 using System.Collections.Generic;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Enums;
 
 namespace CoverLetter.Application.Common.Interfaces;
-
-public enum PromptType
-{
-    CoverLetter,
-    CvCustomization,
-    MatchAnalysis
-}
 
 public interface IPromptRegistry
 {

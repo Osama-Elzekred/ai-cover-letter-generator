@@ -5,7 +5,7 @@ using MediatR;
 namespace CoverLetter.Application.UseCases.MatchCv;
 
 public sealed record MatchCvCommand(
-    string CvId,
+    Guid CvId,
     string JobDescription,
     string? IdempotencyKey = null
 ) : IRequest<Result<MatchCvResult>>, IIdempotentRequest;

@@ -27,20 +27,36 @@ public static class HealthEndpoints
 
     app.MapGet("/health/ready", async (HealthCheckService healthCheckService) =>
     {
-      var report = await healthCheckService.CheckHealthAsync(check => check.Tags.Contains("dependency"));
-      return Results.Ok(new
+      try
       {
-        status = report.Status.ToString(),
-        checks = report.Entries.Select(e => new
+        var report = await healthCheckService.CheckHealthAsync(check => check.Tags.Contains("dependency"));
+
+        var response = new
         {
-          name = e.Key,
-          status = e.Value.Status.ToString(),
-          description = e.Value.Description
-        })
-      });
+          status = report.Status.ToString(),
+          checks = report.Entries.Select(e => new
+          {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description
+          })
+        };
+
+        // Return 503 if any dependency is unhealthy; otherwise 200
+        return report.Status == HealthStatus.Healthy
+          ? Results.Ok(response)
+          : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+      }
+      catch
+      {
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+      }
     })
-    .WithSummary("Check API dependencies")
-    .WithTags("Health");
+    .WithSummary("Check API dependencies (readiness probe)")
+    .WithDescription("Returns 200 if all dependencies are healthy, 503 otherwise. Used by orchestrators for rolling restarts.")
+    .WithTags("Health")
+    .Produces(StatusCodes.Status200OK)
+    .Produces(StatusCodes.Status503ServiceUnavailable);
 
     return app;
   }

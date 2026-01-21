@@ -1,8 +1,8 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Domain.Common;
-using CoverLetter.Domain.Entities;
+using CoverLetter.Domain.Enums;
 using MediatR;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Application.UseCases.GenerateCoverLetter;
@@ -120,7 +120,7 @@ public sealed class GenerateCoverLetterHandler(
   }
 
   /// <summary>
-  /// Resolves CV text from CvId (cache lookup) or uses direct CvText.
+  /// Resolves CV text from CvId (repository lookup) or uses direct CvText.
   /// Includes hyperlinks if available.
   /// </summary>
   private async Task<Result<string>> ResolveCvTextAsync(
@@ -130,37 +130,20 @@ public sealed class GenerateCoverLetterHandler(
     // If CvId provided, retrieve from repository
     if (!string.IsNullOrWhiteSpace(request.CvId))
     {
-      var cvResult = await cvRepository.GetByIdAsync(request.CvId, cancellationToken);
-      if (cvResult.IsFailure)
+      if (!Guid.TryParse(request.CvId, out var cvId))
       {
-        return Result<string>.Failure(cvResult.Errors, cvResult.Type);
+        return Result<string>.Failure("Invalid CvId format", ResultType.InvalidInput);
+      }
+
+      var cv = await cvRepository.GetByIdAsync(cvId, cancellationToken);
+      if (cv is null)
+      {
+        return Result<string>.Failure($"CV not found: {request.CvId}", ResultType.NotFound);
       }
 
       logger.LogDebug("Retrieved CV from repository: {CvId}", request.CvId);
 
-      var cvText = cvResult.Value!.ExtractedText;
-
-      // Append hyperlinks to CV text if available
-      if (cvResult.Value.Hyperlinks != null && cvResult.Value.Hyperlinks.Any())
-      {
-        var linksList = new List<string>();
-        foreach (var link in cvResult.Value.Hyperlinks)
-        {
-          var description = link.Type switch
-          {
-            HyperlinkType.Email => "Email",
-            HyperlinkType.LinkedIn => "LinkedIn",
-            HyperlinkType.GitHub => "GitHub",
-            HyperlinkType.Portfolio => "Portfolio",
-            _ => "Link"
-          };
-          linksList.Add($"- {description}: {link.Url}");
-        }
-
-        cvText += $"\n\nContact Links:\n{string.Join("\n", linksList)}";
-      }
-
-      return Result<string>.Success(cvText);
+      return Result<string>.Success(cv.Content);
     }
 
     // Fallback to direct CvText (backward compatibility)

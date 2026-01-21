@@ -1,8 +1,9 @@
 using CoverLetter.Application.Common.Extensions;
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
 using CoverLetter.Domain.Common;
-using CoverLetter.Domain.Entities;
+using CoverLetter.Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -35,13 +36,12 @@ public sealed class CustomizeCvHandler(
             });
 
             // 1. Resolve CV text
-            var cvResult = await cvRepository.GetByIdAsync(request.CvId, cancellationToken);
-            if (cvResult.IsFailure)
+            var cv = await cvRepository.GetByIdAsync(request.CvId, cancellationToken);
+            if (cv is null)
             {
                 logger.LogWarning("CV not found: {CvId}", request.CvId);
-                return Result<CustomizeCvResult>.Failure(cvResult.Errors, cvResult.Type);
+                return Result<CustomizeCvResult>.Failure($"CV not found: {request.CvId}", ResultType.NotFound);
             }
-            var cvDocument = cvResult.Value!;
 
             // 2. Clean Unicode from job description to prevent LaTeX issues
             var cleanedJobDescription = System.Text.RegularExpressions.Regex.Replace(
@@ -57,32 +57,10 @@ public sealed class CustomizeCvHandler(
                 confirmedSkills = $"**CONFIRMED SKILLS**: The user has specifically confirmed they possess the following skills: {keywordsList}. You MUST ensure these are clearly integrated into the CV.";
             }
 
-            // 3. Format hyperlinks for the prompt
-            var hyperlinkSection = "";
-            if (cvDocument.Hyperlinks != null && cvDocument.Hyperlinks.Any())
-            {
-                var linksList = new List<string>();
-                foreach (var link in cvDocument.Hyperlinks)
-                {
-                    var description = link.Type switch
-                    {
-                        HyperlinkType.Email => "Email",
-                        HyperlinkType.LinkedIn => "LinkedIn Profile",
-                        HyperlinkType.GitHub => "GitHub Profile",
-                        HyperlinkType.Portfolio => "Portfolio",
-                        _ => "Link"
-                    };
-
-                    linksList.Add($"- {description}: {link.Url}");
-                }
-
-                hyperlinkSection = $"\n\n**LINKS TO EMBED**:\n{string.Join("\n", linksList)}";
-            }
-
             var variables = new Dictionary<string, string>
             {
                 { "JobDescription", cleanedJobDescription },
-                { "CvText", cvDocument.ExtractedText + hyperlinkSection },
+                { "CvText", cv.Content },
                 { "ConfirmedSkills", confirmedSkills }
             };
 

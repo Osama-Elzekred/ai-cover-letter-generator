@@ -1,39 +1,70 @@
 namespace CoverLetter.Domain.Entities;
 
 /// <summary>
-/// Represents a generated cover letter entity.
+/// Cover letter aggregate root - rich domain entity with behavior
 /// </summary>
-public sealed class CoverLetterEntity
+public class CoverLetterEntity
 {
-  public Guid Id { get; private set; }
-  public string JobDescription { get; private set; } = string.Empty;
-  public string CvText { get; private set; } = string.Empty;
-  public string GeneratedContent { get; private set; } = string.Empty;
-  public string ModelUsed { get; private set; } = string.Empty;
-  public int PromptTokens { get; private set; }
-  public int CompletionTokens { get; private set; }
-  public DateTime CreatedAt { get; private set; }
+  public Guid Id { get; set; }
+  public Guid UserId { get; set; }
+  public Guid CvId { get; set; }
+  public string JobDescription { get; set; } = string.Empty;
+  public string? CompanyName { get; set; }
+  public string Content { get; set; } = string.Empty;
+  public string Status { get; set; } = "Draft"; // Draft, Generated, Published
+  public DateTime CreatedAt { get; set; }
+  public DateTime UpdatedAt { get; set; }
+  public DateTime? PublishedAt { get; set; }
 
-  private CoverLetterEntity() { } // EF Core
+  // Navigation properties
+  public Cv Cv { get; set; } = null!;
 
-  public static CoverLetterEntity Create(
+  // EF Core requires parameterless constructor
+  public CoverLetterEntity() { }
+
+  /// <summary>
+  /// Factory method to create a new draft cover letter
+  /// </summary>
+  public static CoverLetterEntity CreateDraft(
+      Guid userId,
+      Guid cvId,
       string jobDescription,
-      string cvText,
-      string generatedContent,
-      string modelUsed,
-      int promptTokens,
-      int completionTokens)
+      string? companyName = null)
   {
     return new CoverLetterEntity
     {
       Id = Guid.NewGuid(),
+      UserId = userId,
+      CvId = cvId,
       JobDescription = jobDescription,
-      CvText = cvText,
-      GeneratedContent = generatedContent,
-      ModelUsed = modelUsed,
-      PromptTokens = promptTokens,
-      CompletionTokens = completionTokens,
-      CreatedAt = DateTime.UtcNow
+      CompanyName = companyName,
+      Content = string.Empty,
+      Status = "Draft",
+      CreatedAt = DateTime.UtcNow,
+      UpdatedAt = DateTime.UtcNow
     };
+  }
+
+  /// <summary>
+  /// Update content after generation
+  /// </summary>
+  public void SetContent(string content)
+  {
+    Content = content;
+    Status = "Generated";
+    UpdatedAt = DateTime.UtcNow;
+  }
+
+  /// <summary>
+  /// Publish the cover letter
+  /// </summary>
+  public void Publish()
+  {
+    if (string.IsNullOrWhiteSpace(Content))
+      throw new InvalidOperationException("Cannot publish a cover letter without content");
+
+    Status = "Published";
+    PublishedAt = DateTime.UtcNow;
+    UpdatedAt = DateTime.UtcNow;
   }
 }

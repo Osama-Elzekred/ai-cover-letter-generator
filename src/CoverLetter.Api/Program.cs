@@ -49,6 +49,7 @@ builder.Services.AddRateLimitingWithByok();
 
 // ========== Health Checks ==========
 builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "dependency" })
     .AddCheck<MemoryCacheHealthCheck>("memory_cache", tags: new[] { "dependency" })
     .AddCheck<LatexCompilerHealthCheck>("latex_compiler", tags: new[] { "dependency" });
 

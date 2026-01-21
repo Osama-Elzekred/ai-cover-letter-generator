@@ -2,6 +2,7 @@ using Asp.Versioning;
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CoverLetter.Api.Endpoints;

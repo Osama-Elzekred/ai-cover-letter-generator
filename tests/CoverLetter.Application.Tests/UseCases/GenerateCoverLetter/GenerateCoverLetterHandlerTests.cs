@@ -1,10 +1,11 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
+using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Enums;
 using FluentAssertions;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using CoverLetter.Domain.Common;
 
 namespace CoverLetter.Application.Tests.UseCases.GenerateCoverLetter;
 

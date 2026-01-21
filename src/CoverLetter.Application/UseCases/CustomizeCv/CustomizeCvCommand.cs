@@ -10,7 +10,7 @@ namespace CoverLetter.Application.UseCases.CustomizeCv;
 /// Returns a byte array containing the generated PDF.
 /// </summary>
 public sealed record CustomizeCvCommand(
-    string CvId,
+    Guid CvId,
     string JobDescription,
     string? CustomPromptTemplate = null,
     PromptMode PromptMode = PromptMode.Append,

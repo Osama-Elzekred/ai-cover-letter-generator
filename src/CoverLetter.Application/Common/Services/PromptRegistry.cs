@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Application.Common.Services;

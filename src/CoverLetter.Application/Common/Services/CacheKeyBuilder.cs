@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Domain.Enums;
 
 namespace CoverLetter.Application.Common.Services;
 

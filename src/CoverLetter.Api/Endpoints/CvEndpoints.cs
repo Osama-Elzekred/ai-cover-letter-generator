@@ -3,11 +3,12 @@ using CoverLetter.Application.UseCases.ParseCv;
 using CoverLetter.Application.UseCases.CustomizeCv;
 using CoverLetter.Application.UseCases.MatchCv;
 using CoverLetter.Application.UseCases.GenerateCoverLetter;
+using CoverLetter.Application.UseCases.GetCv;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace CoverLetter.Api.Endpoints;
 
@@ -48,8 +49,8 @@ public static partial class CvEndpoints
 
     cvGroup.MapGet("/{cvId}", GetCvAsync)
         .WithSummary("Retrieve a parsed CV by ID")
-        .WithDescription("Returns the parsed CV document from cache. CV must have been parsed within the last 24 hours.")
-        .Produces<CvDocument>(StatusCodes.Status200OK)
+        .WithDescription("Returns the parsed CV document. CV must have been previously parsed and saved.")
+        .Produces<GetCvResult>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
     cvGroup.MapMethods("/{cvId}", ["HEAD"], CvExistsAsync)
@@ -72,24 +73,24 @@ public static partial class CvEndpoints
   private static async Task<IResult> MatchCvAsync(
       [FromBody] MatchCvRequest request,
       ISender mediator,
-      CancellationToken cancellationToken, 
+      CancellationToken cancellationToken,
       [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var command = new MatchCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
+    var command = new MatchCvCommand(request.CvId, request.JobDescription, IdempotencyKey: idempotencyKey);
 
-      var result = await mediator.Send(command, cancellationToken);
-      return result.ToHttpResult();
+    var result = await mediator.Send(command, cancellationToken);
+    return result.ToHttpResult();
   }
 
-  public sealed record MatchCvRequest(string CvId, string JobDescription);
-  private static IResult CvExistsAsync(string cvId, IMemoryCache cache)
+  public sealed record MatchCvRequest(Guid CvId, string JobDescription);
+
+  private static async Task<IResult> CvExistsAsync(
+      Guid cvId,
+      ICvRepository cvRepository,
+      CancellationToken cancellationToken)
   {
-    var cacheKey = $"cv:{cvId}";
-    if (cache.TryGetValue<CvDocument>(cacheKey, out var cvDocument) && cvDocument is not null)
-    {
-      return Results.Ok(); // 200, no body
-    }
-    return Results.NotFound(); // 404, no body
+    var exists = await cvRepository.ExistsAsync(cvId, cancellationToken);
+    return exists ? Results.Ok() : Results.NotFound();
   }
 
   /// <summary>
@@ -135,23 +136,15 @@ public static partial class CvEndpoints
 
   /// <summary>
   /// GET /api/v1/cv/{cvId}
-  /// Retrieves a parsed CV document from cache.
+  /// Retrieves a parsed CV document from the database.
   /// </summary>
-  private static IResult GetCvAsync(
-      string cvId,
-      IMemoryCache cache)
+  private static async Task<IResult> GetCvAsync(
+      Guid cvId,
+      ISender mediator,
+      CancellationToken cancellationToken)
   {
-    var cacheKey = $"cv:{cvId}";
-
-    if (!cache.TryGetValue<CvDocument>(cacheKey, out var cvDocument) || cvDocument is null)
-    {
-      var notFoundResult = Result<ParseCvResult>.NotFound(
-          "CV not found. The CV may have expired (24h cache) or the ID is invalid.");
-      return notFoundResult.ToHttpResult();
-    }
-
-    var parseCvResult = ParseCvResult.FromDocument(cvDocument);
-    var result = Result<ParseCvResult>.Success(parseCvResult);
+    var query = new GetCvQuery(cvId);
+    var result = await mediator.Send(query, cancellationToken);
     return result.ToHttpResult();
   }
 
@@ -193,16 +186,16 @@ public static partial class CvEndpoints
       CancellationToken cancellationToken,
       [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var command = new CustomizeCvCommand(
-          request.CvId, 
-          request.JobDescription,
-          CustomPromptTemplate: request.CustomPromptTemplate,
-          PromptMode: request.PromptMode,
-          SelectedKeywords: request.SelectedKeywords,
-          IdempotencyKey: idempotencyKey);
+    var command = new CustomizeCvCommand(
+        request.CvId,
+        request.JobDescription,
+        CustomPromptTemplate: request.CustomPromptTemplate,
+        PromptMode: request.PromptMode,
+        SelectedKeywords: request.SelectedKeywords,
+        IdempotencyKey: idempotencyKey);
 
-      var result = await mediator.Send(command, cancellationToken);
-      return result.ToHttpResult();
+    var result = await mediator.Send(command, cancellationToken);
+    return result.ToHttpResult();
   }
 
   private static async Task<IResult> CompileLatexAsync(
@@ -211,19 +204,19 @@ public static partial class CvEndpoints
       CancellationToken cancellationToken,
       [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
   {
-      var command = new CompileLatexCommand(request.LatexSource, idempotencyKey);
-      var result = await mediator.Send(command, cancellationToken);
+    var command = new CompileLatexCommand(request.LatexSource, idempotencyKey);
+    var result = await mediator.Send(command, cancellationToken);
 
-      if (result.IsFailure) return result.ToHttpResult();
+    if (result.IsFailure) return result.ToHttpResult();
 
-      return Results.File(result.Value.PdfContent, "application/pdf", result.Value.FileName);
+    return Results.File(result.Value.PdfContent, "application/pdf", result.Value.FileName);
   }
 }
 
 public sealed record CompileLatexRequest(string LatexSource);
 
 public sealed record CustomizeCvRequest(
-    string CvId, 
+    Guid CvId,
     string JobDescription,
     string? CustomPromptTemplate = null,
     PromptMode PromptMode = PromptMode.Append,

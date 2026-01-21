@@ -1,6 +1,7 @@
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Domain.Common;
+using CoverLetter.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -67,10 +68,10 @@ public static class SettingsEndpoints
   /// Saves a user's Groq API key to cache.
   /// </summary>
   private static IResult SaveGroqApiKey(
-      [FromBody] SaveApiKeyRequest request,
-      HttpContext httpContext,
-      IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+    [FromBody] SaveApiKeyRequest request,
+    HttpContext httpContext,
+    IMemoryCache cache,
+    ICacheKeyBuilder cacheKeyBuilder)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
 
@@ -166,12 +167,11 @@ public static class SettingsEndpoints
   // Note: Users can customize full prompts including LaTeX templates
   // via the cv-customization prompt type rather than separate template storage
 
-  private static IResult SaveCustomPrompt(
-      string promptType,
-      [FromBody] SaveCustomPromptRequest request,
-      HttpContext httpContext,
-      IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+  private static async Task<IResult> SaveCustomPrompt(
+    string promptType,
+    [FromBody] SaveCustomPromptRequest request,
+    HttpContext httpContext,
+    ICustomPromptService customPromptService)
   {
     var userId = httpContext.GetUserId();
     if (string.IsNullOrEmpty(userId))
@@ -198,29 +198,23 @@ public static class SettingsEndpoints
     if (promptTypeEnum == null)
       return Result<SavePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
-    cache.Set(cacheKey, request.Prompt, new MemoryCacheEntryOptions
-    {
-      AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration
-      // Size not needed when SizeLimit is disabled
-    });
+    await customPromptService.SaveUserPromptAsync(promptTypeEnum.Value, request.Prompt, httpContext.RequestAborted);
 
     var response = new SavePromptResponse(
         Message: $"Custom prompt for {promptType} saved successfully",
         UserId: userId,
         PromptType: promptType,
         PromptLength: request.Prompt.Length,
-        ExpiresIn: $"{ApiKeyCacheDuration.TotalDays} days"
+        ExpiresIn: "persisted"
     );
 
     return Result<SavePromptResponse>.Success(response).ToHttpResult();
   }
 
-  private static IResult GetCustomPrompt(
+  private static async Task<IResult> GetCustomPrompt(
       string promptType,
       HttpContext httpContext,
-      IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+      ICustomPromptService customPromptService)
   {
     var userId = httpContext.GetUserId();
     if (string.IsNullOrEmpty(userId))
@@ -237,8 +231,9 @@ public static class SettingsEndpoints
     if (promptTypeEnum == null)
       return Result<CustomPromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
-    if (cache.TryGetValue<string>(cacheKey, out var prompt) && !string.IsNullOrEmpty(prompt))
+    var prompt = await customPromptService.GetUserPromptAsync(promptTypeEnum.Value, httpContext.RequestAborted);
+
+    if (!string.IsNullOrEmpty(prompt))
     {
       var response = new CustomPromptResponse(
           PromptType: promptType,
@@ -251,11 +246,10 @@ public static class SettingsEndpoints
     return Result<CustomPromptResponse>.NotFound($"No custom prompt found for {promptType}").ToHttpResult();
   }
 
-  private static IResult DeleteCustomPrompt(
-      string promptType,
-      HttpContext httpContext,
-      IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+  private static async Task<IResult> DeleteCustomPrompt(
+    string promptType,
+    HttpContext httpContext,
+    ICustomPromptService customPromptService)
   {
     var userId = httpContext.GetUserId();
     if (string.IsNullOrEmpty(userId))
@@ -272,8 +266,7 @@ public static class SettingsEndpoints
     if (promptTypeEnum == null)
       return Result<DeletePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserPromptKey(userId, promptTypeEnum.Value);
-    cache.Remove(cacheKey);
+    await customPromptService.DeleteUserPromptAsync(promptTypeEnum.Value, httpContext.RequestAborted);
 
     var response = new DeletePromptResponse(
         Message: $"Custom prompt for {promptType} deleted successfully. Will use default prompt.",
