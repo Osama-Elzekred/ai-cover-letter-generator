@@ -78,9 +78,12 @@ $RECYCLE.BIN/
 .env.*
 !.env.example
 appsettings.*.json
-!appsettings.json
-# DO NOT commit appsettings.Development.json - it contains real API keys!
+# DO NOT commit ANY appsettings.json - they contain real API keys and DB credentials!
+docker-compose.*.yml
+!docker-compose.yml
 secrets.json
+# User secrets stored outside the project (Windows Registry / ~/.microsoft/usersecrets)
+**/user-secrets.json
 *.pfx
 *.p12
 
