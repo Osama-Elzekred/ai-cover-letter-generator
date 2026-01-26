@@ -1,0 +1,428 @@
+/* ============================================
+   User Onboarding Styles
+   ============================================ */
+
+/* Onboarding Active State */
+body.onboarding-active {
+  overflow: hidden;
+}
+
+/* Modal Container */
+.onboarding-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.onboarding-modal.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.onboarding-modal.hidden {
+  display: none;
+}
+
+/* Backdrop */
+.onboarding-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Modal Content Card */
+.onboarding-content {
+  position: relative;
+  z-index: 10001;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.onboarding-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.onboarding-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.onboarding-skip {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.onboarding-skip:hover {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #94a3b8;
+}
+
+/* Body */
+.onboarding-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.onboarding-description {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0;
+}
+
+.onboarding-description strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.onboarding-description code {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  color: #5d5bd4;
+}
+
+.onboarding-description br {
+  content: "";
+  display: block;
+  margin: 8px 0;
+}
+
+/* Action Button (Step 3 - Groq API) */
+.onboarding-action-btn {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #5d5bd4 0%, #7c7ae0 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(93, 91, 212, 0.3);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.onboarding-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(93, 91, 212, 0.4);
+}
+
+.onboarding-action-btn:active {
+  transform: translateY(0);
+}
+
+.onboarding-action-btn.hidden {
+  display: none;
+}
+
+/* Footer */
+.onboarding-footer {
+  padding: 16px 24px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* Progress Section */
+.onboarding-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.step-counter {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Progress Dots */
+.progress-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: all 0.25s ease;
+}
+
+.progress-dot.active {
+  width: 24px;
+  border-radius: 4px;
+  background: #5d5bd4;
+}
+
+.progress-dot.completed {
+  background: #10b981;
+}
+
+/* Navigation Buttons */
+.onboarding-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.onboarding-nav .btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.onboarding-nav .btn-secondary {
+  background: white;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.onboarding-nav .btn-secondary:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.onboarding-nav .btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.onboarding-nav .btn-primary {
+  background: linear-gradient(135deg, #5d5bd4 0%, #7c7ae0 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(93, 91, 212, 0.3);
+}
+
+.onboarding-nav .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(93, 91, 212, 0.4);
+}
+
+/* Spotlight Effect */
+.onboarding-spotlight {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border: 3px solid #5d5bd4;
+  border-radius: 8px;
+  box-shadow: 
+    0 0 0 4px rgba(93, 91, 212, 0.2),
+    0 0 0 9999px rgba(15, 23, 42, 0.7);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.onboarding-spotlight.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Highlighted Element */
+.onboarding-highlight {
+  position: relative;
+  z-index: 9998;
+  animation: highlightPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.05);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .onboarding-content {
+    max-width: 95%;
+    width: 95%;
+  }
+
+  .onboarding-header,
+  .onboarding-body,
+  .onboarding-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .onboarding-title {
+    font-size: 18px;
+  }
+
+  .onboarding-description {
+    font-size: 14px;
+  }
+}
+
+/* Usage Badge (for rate limit counter) */
+.usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+  margin-left: auto;
+}
+
+.usage-badge.unlimited {
+  background: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.usage-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* BYOK Upgrade Banner */
+.byok-banner {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.byok-banner-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.byok-banner-content {
+  flex: 1;
+}
+
+.byok-banner-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  margin: 0 0 4px;
+}
+
+.byok-banner-text {
+  font-size: 12px;
+  color: #78350f;
+  margin: 0;
+}
+
+.byok-banner-action {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: white;
+  color: #5d5bd4;
+  border: 1px solid #5d5bd4;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.byok-banner-action:hover {
+  background: #5d5bd4;
+  color: white;
+}
+
+.byok-banner-close {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: #92400e;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.byok-banner-close:hover {
+  opacity: 1;
+}

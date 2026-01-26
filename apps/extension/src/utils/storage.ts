@@ -142,3 +142,58 @@ export async function clearAllData(): Promise<void> {
 export async function getAllData(): Promise<StorageData> {
   return await chrome.storage.local.get(null) as StorageData;
 }
+
+/**
+ * Get onboarding completion status
+ */
+export async function getOnboardingCompleted(): Promise<boolean> {
+  const data = await chrome.storage.local.get('onboardingCompleted');
+  return data.onboardingCompleted === true;
+}
+
+/**
+ * Set onboarding completion status
+ */
+export async function setOnboardingCompleted(completed: boolean): Promise<void> {
+  await chrome.storage.local.set({ onboardingCompleted: completed });
+}
+
+/**
+ * Get usage count for current rate limit window
+ */
+export async function getUsageCount(): Promise<number> {
+  const data = await chrome.storage.local.get('usageCount');
+  return data.usageCount || 0;
+}
+
+/**
+ * Increment usage count
+ */
+export async function incrementUsageCount(): Promise<number> {
+  const currentCount = await getUsageCount();
+  const newCount = currentCount + 1;
+  await chrome.storage.local.set({ usageCount: newCount });
+  return newCount;
+}
+
+/**
+ * Reset usage count (called on new rate limit window)
+ */
+export async function resetUsageCount(): Promise<void> {
+  await chrome.storage.local.set({ usageCount: 0 });
+}
+
+/**
+ * Get BYOK banner dismissed status
+ */
+export async function getByokBannerDismissed(): Promise<boolean> {
+  const data = await chrome.storage.local.get('byokBannerDismissed');
+  return data.byokBannerDismissed === true;
+}
+
+/**
+ * Set BYOK banner dismissed status
+ */
+export async function setByokBannerDismissed(dismissed: boolean): Promise<void> {
+  await chrome.storage.local.set({ byokBannerDismissed: dismissed });
+}

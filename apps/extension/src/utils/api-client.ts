@@ -207,6 +207,17 @@ export async function parseCv(file: File): Promise<CvParseResponse> {
 }
 
 /**
+ * Parse CV from text
+ */
+export async function parseCvText(cvText: string): Promise<CvParseResponse> {
+  return apiRequest<CvParseResponse>('/cv/parse-text', {
+    method: 'POST',
+    body: { cvText },
+    includeIdempotencyKey: true,
+  });
+}
+
+/**
  * Generate cover letter
  */
 export async function generateCoverLetter(

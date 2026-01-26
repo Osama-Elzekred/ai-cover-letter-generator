@@ -5,6 +5,7 @@
 import type { JobData, ChromeMessage, CoverLetterRequest } from '../types/index.js';
 import * as storage from '../utils/storage.js';
 import * as api from '../utils/api-client.js';
+import { initOnboarding, restartOnboarding } from './onboarding.js';
 
 // ============================================
 // DOM Elements
@@ -17,6 +18,12 @@ const cvInfo = document.getElementById('cvInfo') as HTMLDivElement;
 const cvFileName = document.getElementById('cvFileName') as HTMLSpanElement;
 const deleteCvBtn = document.getElementById('deleteCvBtn') as HTMLButtonElement;
 const customizeCvBtn = document.getElementById('customizeCvBtn') as HTMLButtonElement;
+const collapseCvBtn = document.getElementById('collapseCvBtn') as HTMLButtonElement;
+const cvSummary = document.getElementById('cvSummary') as HTMLDivElement;
+const cvSummaryDetail = document.getElementById('cvSummaryDetail') as HTMLDivElement;
+const cvReplaceBtn = document.getElementById('cvReplaceBtn') as HTMLButtonElement;
+const cvRemoveBtn = document.getElementById('cvRemoveBtn') as HTMLButtonElement;
+const cvInputBlock = document.getElementById('cvInputBlock') as HTMLDivElement;
 
 const extractJobBtn = document.getElementById('extractJobBtn') as HTMLButtonElement;
 const jobTitleInput = document.getElementById('jobTitle') as HTMLInputElement;
@@ -25,7 +32,6 @@ const jobDescriptionInput = document.getElementById('jobDescription') as HTMLTex
 
 const generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
 
-const resultSection = document.getElementById('resultSection') as HTMLElement;
 const resultContent = document.getElementById('resultContent') as HTMLDivElement;
 const copyBtn = document.getElementById('copyBtn') as HTMLButtonElement;
 const downloadBtn = document.getElementById('downloadBtn') as HTMLButtonElement;
@@ -42,7 +48,6 @@ const errorMessage = document.getElementById('errorMessage') as HTMLSpanElement;
 const successToast = document.getElementById('successToast') as HTMLDivElement;
 const successMessage = document.getElementById('successMessage') as HTMLSpanElement;
 
-const cvEditorSection = document.getElementById('cvEditorSection') as HTMLElement;
 const latexSourceTextarea = document.getElementById('latexSource') as HTMLTextAreaElement;
 const highlighting = document.getElementById('highlighting') as HTMLElement;
 const highlightingContent = document.getElementById('highlighting-content') as HTMLElement;
@@ -67,9 +72,14 @@ const sectionSettings = document.getElementById('sectionSettings') as HTMLElemen
 // Result subsections
 const coverLetterResult = document.getElementById('coverLetterResult') as HTMLElement;
 const cvEditorResult = document.getElementById('cvEditorResult') as HTMLElement;
+const btnResultCoverLetter = document.getElementById('btnResultCoverLetter') as HTMLButtonElement;
+const btnResultCv = document.getElementById('btnResultCv') as HTMLButtonElement;
 
 // Text Input
 const cvTextInput = document.getElementById('cvText') as HTMLTextAreaElement;
+const cvTextArea = document.getElementById('cvTextArea') as HTMLDivElement;
+const btnCvUpload = document.getElementById('btnCvUpload') as HTMLButtonElement;
+const btnCvText = document.getElementById('btnCvText') as HTMLButtonElement;
 
 // Advanced Options
 const customPromptInput = document.getElementById('customPromptTemplate') as HTMLTextAreaElement;
@@ -86,6 +96,15 @@ const deletePromptBtn = document.getElementById('deletePromptBtn') as HTMLButton
 const promptStatus = document.getElementById('promptStatus') as HTMLDivElement;
 const promptStatusText = document.getElementById('promptStatusText') as HTMLSpanElement;
 
+// Onboarding & BYOK elements
+const usageBadge = document.getElementById('usageBadge') as HTMLDivElement;
+const usageText = document.getElementById('usageText') as HTMLSpanElement;
+const byokBanner = document.getElementById('byokBanner') as HTMLDivElement;
+const byokBannerAction = document.getElementById('byokBannerAction') as HTMLButtonElement;
+const byokBannerClose = document.getElementById('byokBannerClose') as HTMLButtonElement;
+const getApiKeyBtn = document.getElementById('getApiKeyBtn') as HTMLButtonElement;
+const restartTutorialBtn = document.getElementById('restartTutorialBtn') as HTMLButtonElement;
+
 // ============================================
 // State
 // ============================================
@@ -94,6 +113,11 @@ let currentCvId: string | null = null;
 let generatedCoverLetter: string | null = null;
 let currentPdfBase64: string | null = null;
 let activeTab: 'input' | 'results' | 'settings' = 'input';
+let activeResultTab: 'cover' | 'cv' = 'cover';
+let hasCoverLetterResult = false;
+let hasCvResult = false;
+let cvCollapsed = false;
+let cvFileDisplayName: string | null = null;
 
 // ============================================
 // Initialization
@@ -109,6 +133,7 @@ async function init() {
       console.log('[Popup] Restoring CV from storage:', cv);
       currentCvId = cv.cvId;
       showCvInfo(cv.fileName);
+      cvCollapsed = true;
     } else {
       console.log('[Popup] No saved CV in storage');
     }
@@ -137,8 +162,9 @@ async function init() {
       currentPdfBase64 = editorState.pdfBase64;
       latexSourceTextarea.value = editorState.latex;
       updateEditor();
-      cvEditorResult.classList.remove('hidden');
-      sectionResults.classList.remove('hidden');
+      hasCvResult = true;
+      setResultTab('cv');
+      cvCollapsed = true;
     }
   } catch (error) {
     console.error('[Popup] Error loading editor state:', error);
@@ -151,8 +177,8 @@ async function init() {
       console.log('[Popup] Restoring cover letter');
       generatedCoverLetter = cl;
       resultContent.textContent = cl;
-      coverLetterResult.classList.remove('hidden');
-      sectionResults.classList.remove('hidden');
+      hasCoverLetterResult = true;
+      setResultTab('cover');
     }
   } catch (error) {
     console.error('[Popup] Error loading cover letter:', error);
@@ -170,6 +196,12 @@ async function init() {
   }
 
   updateGenerateButtonState();
+  await updateUsageChip();
+  updateResultsVisibility();
+  updateCvUI();
+
+  // Check and show onboarding for first-time users
+  await initOnboarding();
 }
 
 // Auto-save Job Data
@@ -225,9 +257,9 @@ cvFileInput.addEventListener('change', async (e) => {
 
 async function handleCvUpload(file: File) {
   // Validate file type
-  const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const validTypes = ['application/pdf', 'text/plain'];
   if (!validTypes.includes(file.type)) {
-    showError('Please upload a PDF or DOCX file');
+    showError('Please upload a PDF or TXT file');
     return;
   }
 
@@ -244,8 +276,10 @@ async function handleCvUpload(file: File) {
     currentCvId = response.cvId;
     await storage.saveCv(response.cvId, file.name);
     showCvInfo(file.name);
+    cvCollapsed = true;
     showSuccess('CV uploaded successfully!');
     updateGenerateButtonState();
+    updateCvUI();
   } catch (error) {
     handleApiError(error, 'Failed to upload CV');
   } finally {
@@ -256,6 +290,29 @@ async function handleCvUpload(file: File) {
 // ============================================
 // Tabs Navigation
 // ============================================
+
+function switchToUploadMode() {
+  btnCvUpload.classList.add('active');
+  btnCvText.classList.remove('active');
+  cvUploadArea.classList.remove('hidden');
+  cvTextArea.classList.add('hidden');
+  cvCollapsed = false;
+  updateGenerateButtonState();
+  updateCvUI();
+}
+
+function switchToTextMode() {
+  btnCvText.classList.add('active');
+  btnCvUpload.classList.remove('active');
+  cvUploadArea.classList.add('hidden');
+  cvTextArea.classList.remove('hidden');
+  cvCollapsed = false;
+  updateGenerateButtonState();
+  updateCvUI();
+}
+
+btnCvUpload.addEventListener('click', switchToUploadMode);
+btnCvText.addEventListener('click', switchToTextMode);
 
 tabInput.addEventListener('click', () => {
   activeTab = 'input';
@@ -276,6 +333,7 @@ tabResults.addEventListener('click', () => {
   sectionResults.classList.remove('hidden');
   sectionInput.classList.add('hidden');
   sectionSettings.classList.add('hidden');
+  updateResultsVisibility();
 });
 
 tabSettings.addEventListener('click', () => {
@@ -290,24 +348,104 @@ tabSettings.addEventListener('click', () => {
   loadCurrentPrompt();
 });
 
+// Nested Results tabs (Cover Letter / CV)
+function setResultTab(tab: 'cover' | 'cv') {
+  activeResultTab = tab;
+  btnResultCoverLetter.classList.toggle('active', tab === 'cover');
+  btnResultCv.classList.toggle('active', tab === 'cv');
+  updateResultsVisibility();
+}
+
+function updateResultsVisibility() {
+  const showCover = hasCoverLetterResult && activeResultTab === 'cover';
+  const showCv = hasCvResult && activeResultTab === 'cv';
+
+  coverLetterResult.classList.toggle('hidden', !showCover);
+  cvEditorResult.classList.toggle('hidden', !showCv);
+
+  btnResultCoverLetter.disabled = !hasCoverLetterResult;
+  btnResultCv.disabled = !hasCvResult;
+
+   // Only show the Results section when the Results tab is active
+  if (activeTab === 'results') {
+    sectionResults.classList.remove('hidden');
+  } else {
+    sectionResults.classList.add('hidden');
+  }
+}
+
+btnResultCoverLetter.addEventListener('click', () => setResultTab('cover'));
+btnResultCv.addEventListener('click', () => setResultTab('cv'));
+
 function showCvInfo(fileName: string) {
   uploadPlaceholder.classList.add('hidden');
   cvInfo.classList.remove('hidden');
   cvFileName.textContent = fileName;
+  cvFileDisplayName = fileName;
 }
 
 function hideCvInfo() {
   uploadPlaceholder.classList.remove('hidden');
   cvInfo.classList.add('hidden');
+  cvFileDisplayName = null;
 }
 
 deleteCvBtn.addEventListener('click', async (e) => {
   e.stopPropagation();
+  await removeCv();
+});
+
+async function removeCv() {
   await storage.deleteCv();
   currentCvId = null;
+  cvFileDisplayName = null;
   hideCvInfo();
+  cvTextInput.value = '';
+  cvCollapsed = false;
   updateGenerateButtonState();
+  updateCvUI();
   showSuccess('CV removed');
+}
+
+collapseCvBtn.addEventListener('click', async () => {
+  const hasFile = !!currentCvId;
+  const hasText = cvTextInput.value.trim().length > 0;
+  
+  if (!hasFile && !hasText) {
+    showError('Upload a file or paste your CV first');
+    return;
+  }
+  
+  // If using text mode and no CV ID yet, parse the text first
+  if (!hasFile && hasText) {
+    showLoading('Saving CV text...');
+    try {
+      const response = await api.parseCvText(cvTextInput.value.trim());
+      currentCvId = response.cvId;
+      await storage.saveCv(response.cvId, 'cv.txt');
+      cvFileDisplayName = 'CV Text';
+      showSuccess('CV text saved successfully!');
+    } catch (error) {
+      handleApiError(error, 'Failed to save CV text');
+      hideLoading();
+      return;
+    } finally {
+      hideLoading();
+    }
+  }
+  
+  cvCollapsed = true;
+  updateCvUI();
+});
+
+cvReplaceBtn.addEventListener('click', () => {
+  cvCollapsed = false;
+  updateCvUI();
+  cvInputBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+cvRemoveBtn.addEventListener('click', async () => {
+  await removeCv();
 });
 
 // ============================================
@@ -341,14 +479,16 @@ customizeCvBtn.addEventListener('click', async (e) => {
     currentPdfBase64 = response.pdfContent;
     latexSourceTextarea.value = response.latexSource;
     updateEditor(); // Update highlighting
+    hasCvResult = true;
     
     // Persist editor state
     await storage.saveEditorState(response.latexSource, response.pdfContent);
     
     // Show editor result and switch to Results tab
-    cvEditorResult.classList.remove('hidden');
     sectionResults.classList.remove('hidden');
     tabResults.click();
+    setResultTab('cv');
+    updateResultsVisibility();
     
     setTimeout(() => cvEditorResult.scrollIntoView({ behavior: 'smooth' }), 100);
     switchToSourceView();
@@ -632,14 +772,16 @@ generateBtn.addEventListener('click', async () => {
 
     generatedCoverLetter = response.coverLetter;
     resultContent.textContent = response.coverLetter;
+    hasCoverLetterResult = true;
     
     // Persist cover letter
     await storage.saveGeneratedCoverLetter(response.coverLetter);
     
     // Show cover letter result and switch to Results tab
-    coverLetterResult.classList.remove('hidden');
     sectionResults.classList.remove('hidden');
     tabResults.click();
+    setResultTab('cover');
+    updateResultsVisibility();
     
     setTimeout(() => coverLetterResult.scrollIntoView({ behavior: 'smooth' }), 100);
     showSuccess('Cover letter generated!');
@@ -698,6 +840,8 @@ saveApiKeyBtn.addEventListener('click', async () => {
     apiKeyInput.value = '••••••••••••••••';
     apiKeyStatus.classList.remove('hidden');
     showSuccess('API key saved!');
+    await updateUsageChip();
+    byokBanner.classList.add('hidden');
   } catch (error) {
     handleApiError(error, 'Failed to save API key');
   } finally {
@@ -714,6 +858,7 @@ deleteApiKeyBtn.addEventListener('click', async () => {
     apiKeyInput.value = '';
     apiKeyStatus.classList.add('hidden');
     showSuccess('API key deleted');
+    await updateUsageChip();
   } catch (error) {
     handleApiError(error, 'Failed to delete API key');
   } finally {
@@ -724,6 +869,41 @@ deleteApiKeyBtn.addEventListener('click', async () => {
 // ============================================
 // UI Helpers
 // ============================================
+
+function getCvSummaryText(hasFile: boolean, hasText: boolean) {
+  if (hasFile && cvFileDisplayName) {
+    // Show file name for uploaded files, or 'CV Text' for text mode
+    return `File: ${cvFileDisplayName}`;
+  }
+
+  if (hasFile && !cvFileDisplayName) {
+    return 'CV ready';
+  }
+
+  if (hasText) {
+    const text = cvTextInput.value.trim();
+    const snippet = text.replace(/\s+/g, ' ').slice(0, 60);
+    const suffix = text.length > 60 ? '...' : '';
+    return snippet ? `Text: ${snippet}${suffix}` : 'CV text ready';
+  }
+
+  return 'No CV yet';
+}
+
+function updateCvUI() {
+  const hasFile = !!currentCvId;
+  const hasText = cvTextInput.value.trim().length > 0;
+  const hasCv = hasFile || hasText;
+
+  if (!hasCv) {
+    cvCollapsed = false;
+  }
+
+  cvSummaryDetail.textContent = getCvSummaryText(hasFile, hasText);
+  cvSummary.classList.toggle('hidden', !(cvCollapsed && hasCv));
+  cvInputBlock.classList.toggle('hidden', cvCollapsed && hasCv);
+  collapseCvBtn.disabled = !hasCv;
+}
 
 function updateGenerateButtonState() {
   const hasJobTitle = jobTitleInput.value.trim().length > 0;
@@ -738,6 +918,8 @@ function updateGenerateButtonState() {
   
   // Magic Button specifically needs a CV ID (uploaded file) and Job details
   customizeCvBtn.disabled = !(currentCvId && hasJobTitle && hasCompany && hasDescription);
+
+  updateCvUI();
 }
 
 function showLoading(text: string) {
@@ -771,7 +953,9 @@ function handleApiError(error: any, fallbackMessage: string) {
   if (error instanceof api.ApiClientError) {
     const apiError = error.apiError;
     if (error.status === 429) {
-      showError('Rate limit exceeded. Please add your API key in settings.');
+      showError('Rate limit exceeded. Add your free API key in Settings for unlimited access.');
+      // Show BYOK banner on rate limit
+      showByokBannerIfNeeded();
     } else if (error.status === 404) {
       showError('CV not found. Please upload your CV again.');
     } else if (apiError && apiError.errors) {
@@ -964,6 +1148,75 @@ function showPromptStatus(message: string, type: 'success' | 'error' | 'info') {
     promptStatus.classList.add('hidden');
   }, 3000);
 }
+
+// ============================================
+// Onboarding & BYOK Features
+// ============================================
+
+/**
+ * Update limited/unlimited chip in header
+ */
+async function updateUsageChip() {
+  try {
+    const apiKey = await storage.getApiKey();
+
+    usageBadge.classList.remove('hidden');
+
+    if (apiKey) {
+      usageBadge.classList.add('unlimited');
+      usageText.textContent = 'Unlimited';
+      usageBadge.title = 'You are using your Groq API key';
+    } else {
+      usageBadge.classList.remove('unlimited');
+      usageText.textContent = 'Limited';
+      usageBadge.title = 'Save your free Groq API key for unlimited usage';
+    }
+  } catch (error) {
+    console.error('[Popup] Error updating usage chip:', error);
+    usageBadge.classList.add('hidden');
+  }
+}
+
+/**
+ * Show BYOK upgrade banner if not dismissed
+ */
+async function showByokBannerIfNeeded() {
+  const dismissed = await storage.getByokBannerDismissed();
+  if (!dismissed) {
+    byokBanner.classList.remove('hidden');
+  }
+}
+
+// Get Free API Key button (Settings tab)
+getApiKeyBtn.addEventListener('click', () => {
+  window.open('https://console.groq.com/keys', '_blank');
+});
+
+// BYOK Banner action button
+byokBannerAction.addEventListener('click', () => {
+  // Switch to Settings tab
+  tabSettings.click();
+  // Open Groq API key page
+  window.open('https://console.groq.com/keys', '_blank');
+  // Hide banner
+  byokBanner.classList.add('hidden');
+});
+
+// BYOK Banner close button
+byokBannerClose.addEventListener('click', async () => {
+  byokBanner.classList.add('hidden');
+  await storage.setByokBannerDismissed(true);
+});
+
+// Restart Tutorial button
+restartTutorialBtn.addEventListener('click', async () => {
+  await restartOnboarding();
+});
+
+// Limited/Unlimited chip click → open Groq key page
+usageBadge.addEventListener('click', () => {
+  window.open('https://console.groq.com/keys', '_blank');
+});
 
 // ============================================
 // Start
