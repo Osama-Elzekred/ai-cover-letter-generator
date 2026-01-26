@@ -33,7 +33,7 @@
         "https://www.linkedin.com/jobs/search/*",
         "https://www.linkedin.com/jobs/collections/*"
       ],
-      "js": ["popup/lib/prism.js", "content/linkedin-detector.js"],
+      "js": ["content/linkedin-detector.js"],
       "run_at": "document_idle"
     }
   ],

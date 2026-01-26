@@ -49,8 +49,6 @@ const successToast = document.getElementById('successToast') as HTMLDivElement;
 const successMessage = document.getElementById('successMessage') as HTMLSpanElement;
 
 const latexSourceTextarea = document.getElementById('latexSource') as HTMLTextAreaElement;
-const highlighting = document.getElementById('highlighting') as HTMLElement;
-const highlightingContent = document.getElementById('highlighting-content') as HTMLElement;
 const recompileBtn = document.getElementById('recompileBtn') as HTMLButtonElement;
 const downloadTexBtn = document.getElementById('downloadTexBtn') as HTMLButtonElement;
 const downloadPdfBtn = document.getElementById('downloadPdfBtn') as HTMLButtonElement;
@@ -80,6 +78,7 @@ const cvTextInput = document.getElementById('cvText') as HTMLTextAreaElement;
 const cvTextArea = document.getElementById('cvTextArea') as HTMLDivElement;
 const btnCvUpload = document.getElementById('btnCvUpload') as HTMLButtonElement;
 const btnCvText = document.getElementById('btnCvText') as HTMLButtonElement;
+const saveCvTextBtn = document.getElementById('saveCvTextBtn') as HTMLButtonElement;
 
 // Advanced Options
 const customPromptInput = document.getElementById('customPromptTemplate') as HTMLTextAreaElement;
@@ -407,31 +406,12 @@ async function removeCv() {
   showSuccess('CV removed');
 }
 
-collapseCvBtn.addEventListener('click', async () => {
-  const hasFile = !!currentCvId;
-  const hasText = cvTextInput.value.trim().length > 0;
+collapseCvBtn.addEventListener('click', () => {
+  const hasCv = !!currentCvId || cvTextInput.value.trim().length > 0;
   
-  if (!hasFile && !hasText) {
+  if (!hasCv) {
     showError('Upload a file or paste your CV first');
     return;
-  }
-  
-  // If using text mode and no CV ID yet, parse the text first
-  if (!hasFile && hasText) {
-    showLoading('Saving CV text...');
-    try {
-      const response = await api.parseCvText(cvTextInput.value.trim());
-      currentCvId = response.cvId;
-      await storage.saveCv(response.cvId, 'cv.txt');
-      cvFileDisplayName = 'CV Text';
-      showSuccess('CV text saved successfully!');
-    } catch (error) {
-      handleApiError(error, 'Failed to save CV text');
-      hideLoading();
-      return;
-    } finally {
-      hideLoading();
-    }
   }
   
   cvCollapsed = true;
@@ -446,6 +426,32 @@ cvReplaceBtn.addEventListener('click', () => {
 
 cvRemoveBtn.addEventListener('click', async () => {
   await removeCv();
+});
+
+saveCvTextBtn.addEventListener('click', async () => {
+  const cvText = cvTextInput.value.trim();
+  
+  if (!cvText) {
+    showError('Please paste your CV text first');
+    return;
+  }
+  
+  showLoading('Saving CV text...');
+  
+  try {
+    const response = await api.parseCvText(cvText);
+    currentCvId = response.cvId;
+    await storage.saveCv(response.cvId, 'cv.txt');
+    cvFileDisplayName = 'CV Text';
+    cvCollapsed = true;
+    showSuccess('CV text saved successfully!');
+    updateGenerateButtonState();
+    updateCvUI();
+  } catch (error) {
+    handleApiError(error, 'Failed to save CV text');
+  } finally {
+    hideLoading();
+  }
 });
 
 // ============================================
@@ -518,27 +524,13 @@ viewPdfBtn.addEventListener('click', () => {
   // Browser will clean up when the extension process closes or we can manage it.
 });
 
-// Editor Highlighting Logic
+// Editor State Persistence
 function updateEditor() {
-  let code = latexSourceTextarea.value;
-  if (code[code.length-1] == "\n") {
-    code += " ";
-  }
-  highlightingContent.textContent = code;
-  if ((window as any).Prism) {
-    (window as any).Prism.highlightElement(highlightingContent);
-  }
-  
   // Persist manual edits
   storage.saveEditorState(latexSourceTextarea.value, currentPdfBase64);
 }
 
 latexSourceTextarea.addEventListener('input', updateEditor);
-
-latexSourceTextarea.addEventListener('scroll', () => {
-  highlighting.scrollTop = latexSourceTextarea.scrollTop;
-  highlighting.scrollLeft = latexSourceTextarea.scrollLeft;
-});
 
 // CV Editor Views
 btnViewSource.addEventListener('click', switchToSourceView);

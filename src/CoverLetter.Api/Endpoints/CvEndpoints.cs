@@ -32,6 +32,13 @@ public static partial class CvEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .DisableAntiforgery();
 
+    cvGroup.MapPost("/parse-text", ParseCvTextAsync)
+        .WithSummary("Store CV from pasted text")
+        .WithDescription("Accepts CV text directly and stores it. Returns a CV ID for future use with customize or generate endpoints.")
+        .Produces<CvDocument>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .DisableAntiforgery();
+
     cvGroup.MapPost("/customize", CustomizeCvAsync)
         .WithSummary("Customize a CV based on job description")
         .WithDescription("Uses AI to map CV information into a professional LaTeX template. Returns both PDF and LaTeX source.")
@@ -135,6 +142,29 @@ public static partial class CvEndpoints
   }
 
   /// <summary>
+  /// POST /api/v1/cv/parse-text
+  /// Stores CV from pasted text content.
+  /// </summary>
+  private static async Task<IResult> ParseCvTextAsync(
+      [FromBody] ParseCvTextRequest request,
+      ISender mediator,
+      CancellationToken cancellationToken,
+      [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
+  {
+    var fileContent = System.Text.Encoding.UTF8.GetBytes(request.CvText);
+
+    var command = new ParseCvCommand(
+        FileName: "cv.txt",
+        FileContent: fileContent,
+        Format: CvFormat.PlainText,
+        IdempotencyKey: idempotencyKey);
+
+    var result = await mediator.Send(command, cancellationToken);
+
+    return result.ToHttpResult();
+  }
+
+  /// <summary>
   /// GET /api/v1/cv/{cvId}
   /// Retrieves a parsed CV document from the database.
   /// </summary>
@@ -214,6 +244,8 @@ public static partial class CvEndpoints
 }
 
 public sealed record CompileLatexRequest(string LatexSource);
+
+public sealed record ParseCvTextRequest(string CvText);
 
 public sealed record CustomizeCvRequest(
     Guid CvId,

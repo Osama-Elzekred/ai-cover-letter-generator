@@ -9,8 +9,7 @@ const folders = [
   'dist/content',
   'dist/assets',
   'dist/utils',
-  'dist/types',
-  'dist/popup/lib'
+  'dist/types'
 ];
 
 async function build() {
@@ -43,9 +42,7 @@ async function build() {
     { src: 'manifest.json', dest: 'dist/manifest.json' },
     { src: 'src/popup/index.html', dest: 'dist/popup/index.html' },
     { src: 'src/popup/styles.css', dest: 'dist/popup/styles.css' },
-    { src: 'src/popup/onboarding.css', dest: 'dist/popup/onboarding.css' },
-    { src: 'src/popup/lib/prism.js', dest: 'dist/popup/lib/prism.js' },
-    { src: 'src/popup/lib/prism.css', dest: 'dist/popup/lib/prism.css' }
+    { src: 'src/popup/onboarding.css', dest: 'dist/popup/onboarding.css' }
   ];
 
   filesToCopy.forEach(({ src, dest }) => {

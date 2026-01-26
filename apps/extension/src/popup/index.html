@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Cover Letter Generator</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="lib/prism.css">
   <link rel="stylesheet" href="onboarding.css">
 </head>
 <body>
@@ -100,6 +99,14 @@
             <label for="cvText">Paste CV Text</label>
             <textarea id="cvText" rows="6" placeholder="Paste your CV content here..."></textarea>
           </div>
+          <button class="btn btn-primary btn-sm w-full" id="saveCvTextBtn" style="margin-top: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save CV Text
+          </button>
         </div>
       </div>
 
@@ -228,11 +235,8 @@
         </div>
       
         <div id="sourceEditor">
-          <!-- Highlighted Editor Container -->
-          <div class="editor-container">
-            <pre id="highlighting" aria-hidden="true"><code class="language-latex" id="highlighting-content"></code></pre>
-            <textarea id="latexSource" spellcheck="false" placeholder="LaTeX source code will appear here..."></textarea>
-          </div>
+          <!-- LaTeX Editor -->
+          <textarea id="latexSource" spellcheck="false" class="latex-editor" placeholder="LaTeX source code will appear here..."></textarea>
 
           <div class="cv-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
             <button class="btn btn-primary" id="recompileBtn" style="flex: 1; min-width: 120px;">
@@ -408,7 +412,6 @@ You can include LaTeX templates, specific formatting requirements, tone preferen
     </div>
   </div>
 
-  <script src="lib/prism.js"></script>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

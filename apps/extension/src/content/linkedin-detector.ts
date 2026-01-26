@@ -278,7 +278,6 @@ function renderResumeTab(): string {
         </div>
 
         <div class="widget-editor-container">
-          <pre class="widget-editor-highlighting" id="widget-highlighting"><code class="language-latex" id="widget-highlighting-content"></code></pre>
           <textarea class="widget-editor-textarea" id="widget-latex-source" spellcheck="false">${lastGeneratedCv.latexSource}</textarea>
         </div>
         <div class="widget-editor-actions">
@@ -377,7 +376,7 @@ function renderLetterTab(): string {
             id="widget-letter-content" 
             class="letter-textarea" 
             spellcheck="true" 
-            style="width: 100%; height: 350px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, system-ui, sans-serif; font-size: 13px; line-height: 1.6; color: #1e293b; resize: vertical; box-sizing: border-box;"
+            style="width: 100%; height: 350px; padding: 12px; border: 1px solid #334155; border-radius: 8px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 11px; line-height: 1.5; color: #f8fafc; background: #1e293b; resize: vertical; box-sizing: border-box; white-space: pre; word-wrap: normal; overflow: auto; outline: none; margin: 0; color-scheme: dark;"
           >${lastGeneratedLetter.coverLetter}</textarea>
         </div>
         
@@ -567,19 +566,11 @@ function attachEvents(container: HTMLElement) {
   // Editor Sync and Actions
   const latexSource = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
   if (latexSource) {
-    // Initial highlighting
+    // Initial save to storage
     updateWidgetEditor(container);
 
     latexSource.addEventListener('input', () => {
       updateWidgetEditor(container);
-    });
-
-    latexSource.addEventListener('scroll', () => {
-      const highlighting = container.querySelector('#widget-highlighting') as HTMLElement;
-      if (highlighting) {
-        highlighting.scrollTop = latexSource.scrollTop;
-        highlighting.scrollLeft = latexSource.scrollLeft;
-      }
     });
   }
 
@@ -662,28 +653,7 @@ function attachEvents(container: HTMLElement) {
 
 function updateWidgetEditor(container: HTMLElement) {
   const textarea = container.querySelector('#widget-latex-source') as HTMLTextAreaElement;
-  const highlightingContent = container.querySelector('#widget-highlighting-content') as HTMLElement;
-  if (!textarea || !highlightingContent) return;
-
-  let code = textarea.value;
-  if (code[code.length-1] == "\n") code += " ";
-  highlightingContent.textContent = code;
-  
-  // Use Prism if available
-  const anyGlobal = (globalThis as any);
-  const prism = anyGlobal.Prism || (window as any).Prism;
-  
-  if (prism) {
-    if (prism.languages && prism.languages.latex) {
-      console.log('[AI Co-Pilot] Prism & LaTeX detected, highlighting...');
-      prism.highlightElement(highlightingContent);
-    } else {
-      console.warn('[AI Co-Pilot] Prism found but LaTeX grammar is missing!', prism.languages);
-      // Fallback: if latex is missing, maybe it's under another name or not loaded
-    }
-  } else {
-    console.error('[AI Co-Pilot] Prism library NOT found in content script scope.');
-  }
+  if (!textarea) return;
 
   // Sync to Storage so Popup is updated too
   if (lastGeneratedCv) {
@@ -1024,6 +994,16 @@ function injectStyles() {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
+    /* Global Selection Override */
+    ::selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    ::-moz-selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    
     .glass-card {
       background: white;
       border: 1px solid rgba(226, 232, 240, 1);
@@ -1245,7 +1225,9 @@ function injectStyles() {
     .mode-btn.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
     .instruction-box textarea { width: 100%; height: 80px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit; font-size: 13px; resize: none; outline: none; transition: border-color 0.2s; }
-    .instruction-box textarea:focus { border-color: #5d5bd4; }
+    .instruction-box textarea:focus { border-color: #5d5bd4; color: inherit !important; background: white !important; }
+    .instruction-box textarea::selection { background: #3b82f6 !important; color: #ffffff !important; }
+    .instruction-box textarea::-moz-selection { background: #3b82f6 !important; color: #ffffff !important; }
 
     .action-status-box { background: #f5f3ff; padding: 14px; border-radius: 10px; margin: 15px 0; }
     .status-badge { font-size: 10px; font-weight: 800; color: #5d5bd4; text-transform: uppercase; margin-bottom: 5px; }
@@ -1290,58 +1272,94 @@ function injectStyles() {
     .editor-tab-btn { padding: 4px 12px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; border-radius: 16px; color: #64748b; }
     .editor-tab-btn.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-    .widget-editor-container { position: relative; height: 300px; background: #1e1e1e; border-radius: 8px; overflow: hidden; border: 1px solid #333; }
-    .widget-editor-textarea, .widget-editor-highlighting {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      margin: 0 !important; padding: 16px !important; border: none !important; 
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; 
-      font-size: 13px !important; line-height: 1.5 !important;
-      white-space: pre !important; 
-      word-wrap: normal !important;
-      overflow: auto !important; box-sizing: border-box !important;
-      text-align: left !important;
+    .widget-editor-container { 
+      height: 300px; 
+      background: #1e293b; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      border: 1px solid #334155; 
     }
     .widget-editor-textarea {
-      background: transparent !important; 
-      color: transparent !important; 
-      -webkit-text-fill-color: transparent !important;
-      caret-color: white !important; 
-      z-index: 2 !important; 
-      resize: none !important; 
-      outline: none !important;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 12px;
+      border: none;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre;
+      word-wrap: normal;
+      overflow: auto;
+      box-sizing: border-box;
+      background: #1e293b;
+      color: #f8fafc;
+      resize: none;
+      outline: none;
+      color-scheme: dark;
     }
-    .widget-editor-highlighting { z-index: 1 !important; pointer-events: none !important; color: #ccc !important; }
-    .widget-editor-highlighting code { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; }
-
-    /* Prism Colors Integration - High Specificity */
-    #ai-copilot-container .token.comment { color: #999 !important; }
-    #ai-copilot-container .token.punctuation { color: #ccc !important; }
-    #ai-copilot-container .token.tag, 
-    #ai-copilot-container .token.attr-name, 
-    #ai-copilot-container .token.namespace { color: #e2777a !important; }
-    #ai-copilot-container .token.boolean, 
-    #ai-copilot-container .token.number, 
-    #ai-copilot-container .token.function { color: #f08d49 !important; }
-    #ai-copilot-container .token.property, 
-    #ai-copilot-container .token.class-name, 
-    #ai-copilot-container .token.constant, 
-    #ai-copilot-container .token.symbol { color: #f8c555 !important; }
-    #ai-copilot-container .token.selector, 
-    #ai-copilot-container .token.important, 
-    #ai-copilot-container .token.atrule, 
-    #ai-copilot-container .token.keyword, 
-    #ai-copilot-container .token.builtin { color: #cc99cd !important; }
-    #ai-copilot-container .token.string, 
-    #ai-copilot-container .token.char, 
-    #ai-copilot-container .token.attr-value, 
-    #ai-copilot-container .token.regex, 
-    #ai-copilot-container .token.variable { color: #7ec699 !important; }
-    #ai-copilot-container .token.operator, 
-    #ai-copilot-container .token.entity, 
-    #ai-copilot-container .token.url { color: #67cdcc !important; }
+    .widget-editor-textarea:focus {
+      box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.2);
+      color: #f8fafc !important;
+      background: #1e293b !important;
+    }
+    .widget-editor-textarea:active {
+      color: #f8fafc !important;
+      background: #1e293b !important;
+    }
+    .widget-editor-textarea::selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    .widget-editor-textarea::-moz-selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    .widget-editor-textarea::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .widget-editor-textarea::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .widget-editor-textarea::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
 
     .widget-editor-actions { display: flex; gap: 8px; margin-top: 12px; }
     .widget-preview-box { height: 300px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+    
+    .letter-textarea::selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    .letter-textarea::-moz-selection {
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+    }
+    .letter-textarea:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+      outline: none;
+      color: #f8fafc !important;
+      background: #1e293b !important;
+    }
+    .letter-textarea:active {
+      color: #f8fafc !important;
+      background: #1e293b !important;
+    }
+    .letter-textarea::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .letter-textarea::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .letter-textarea::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
     
     .overleaf-btn { background: #47a1ad !important; }
     .btn-icon { margin-right: 6px; }

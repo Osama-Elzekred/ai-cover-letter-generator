@@ -555,54 +555,57 @@ body {
   justify-content: center;
 }
 
-.editor-container {
-  position: relative;
+.latex-editor {
+  width: 100%;
   height: 250px;
+  margin: 0;
+  padding: 12px;
   background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
   border-radius: 8px;
-  overflow: hidden;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  word-wrap: normal;
+  resize: vertical;
+  outline: none;
+  overflow: auto;
 }
 
-#latexSource, #highlighting {
-  /* Both elements need the same font/padding/etc */
-  margin: 0 !important;
-  padding: 12px !important;
-  border: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-  font-size: 11px !important;
-  line-height: 1.5 !important;
-  white-space: pre !important;
-  word-wrap: normal !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  box-sizing: border-box !important;
+.latex-editor:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
-#latexSource {
-  z-index: 2;
-  background: transparent !important;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  caret-color: white !important; /* Show the cursor */
-  resize: none !important;
-  outline: none !important;
-  overflow: auto !important;
+.latex-editor::selection {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
 }
 
-#highlighting {
-  z-index: 1;
-  background: #1e293b !important;
-  color: #f8fafc !important;
-  pointer-events: none !important;
-  overflow: hidden !important;
+.latex-editor::-moz-selection {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
 }
 
-/* Hide scrollbars but keep functionality */
-#latexSource::-webkit-scrollbar { width: 0; }
-#highlighting::-webkit-scrollbar { width: 0; }
+.latex-editor::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.latex-editor::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.latex-editor::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.latex-editor::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
 
 .tab-pill-btn {
   transition: all var(--transition-fast);
