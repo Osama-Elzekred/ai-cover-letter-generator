@@ -41,15 +41,15 @@ public static class SettingsEndpoints
 
     // Custom Prompt endpoints
     group.MapPost("/prompts/{promptType}", SaveCustomPrompt)
-        .WithSummary("Save custom prompt for CV/Letter/Match")
-        .WithDescription("Store a custom prompt for cv-customization, cover-letter, or match-analysis. Requires X-User-Id header.")
+        .WithSummary("Save custom prompt for CV/Letter/Match/TextareaAnswer")
+        .WithDescription("Store a custom prompt for cv-customization, cover-letter, match-analysis, or textarea-answer. Requires X-User-Id header.")
         .Produces<SavePromptResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
     group.MapGet("/prompts/{promptType}", GetCustomPrompt)
         .WithSummary("Get custom prompt")
-        .WithDescription("Retrieve a custom prompt for the specified type. Returns 404 if none saved.")
+        .WithDescription("Retrieve a custom prompt for the specified type (cv-customization, cover-letter, match-analysis, textarea-answer). Returns 404 if none saved.")
         .Produces<CustomPromptResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -181,7 +181,7 @@ public static class SettingsEndpoints
       return Result<SavePromptResponse>.ValidationError("Prompt cannot be empty").ToHttpResult();
 
     // Validate prompt type
-    var allowedTypes = new[] { "cv-customization", "cover-letter", "match-analysis" };
+    var allowedTypes = new[] { "cv-customization", "cover-letter", "match-analysis", "textarea-answer" };
     if (!allowedTypes.Contains(promptType))
       return Result<SavePromptResponse>.ValidationError(
           $"Invalid prompt type. Allowed: {string.Join(", ", allowedTypes)}").ToHttpResult();
@@ -192,6 +192,7 @@ public static class SettingsEndpoints
       "cv-customization" => PromptType.CvCustomization,
       "cover-letter" => PromptType.CoverLetter,
       "match-analysis" => PromptType.MatchAnalysis,
+      "textarea-answer" => PromptType.TextareaAnswer,
       _ => (PromptType?)null
     };
 
@@ -225,6 +226,7 @@ public static class SettingsEndpoints
       "cv-customization" => PromptType.CvCustomization,
       "cover-letter" => PromptType.CoverLetter,
       "match-analysis" => PromptType.MatchAnalysis,
+      "textarea-answer" => PromptType.TextareaAnswer,
       _ => (PromptType?)null
     };
 
@@ -260,6 +262,7 @@ public static class SettingsEndpoints
       "cv-customization" => PromptType.CvCustomization,
       "cover-letter" => PromptType.CoverLetter,
       "match-analysis" => PromptType.MatchAnalysis,
+      "textarea-answer" => PromptType.TextareaAnswer,
       _ => (PromptType?)null
     };
 

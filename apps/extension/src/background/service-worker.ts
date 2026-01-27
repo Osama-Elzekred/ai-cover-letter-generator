@@ -2,7 +2,6 @@
 // Background Service Worker
 // ============================================
 
-
 import { 
   customizeCv, 
   generateCoverLetter, 
@@ -11,7 +10,8 @@ import {
   getPromptTemplates,
   saveCustomPrompt,
   getCustomPrompt,
-  deleteCustomPrompt
+  deleteCustomPrompt,
+  generateTextareaAnswer
 } from '../utils/api-client.js';
 import type { ChromeMessage } from '../types/index.js';
 
@@ -66,6 +66,11 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
   if (message.type === 'DELETE_CUSTOM_PROMPT') {
     handleDeleteCustomPrompt(message.payload, sendResponse);
+    return true;
+  }
+
+  if (message.type === 'GENERATE_TEXTAREA_ANSWER') {
+    handleGenerateTextareaAnswer(message.payload, sendResponse);
     return true;
   }
   
@@ -261,6 +266,30 @@ async function handleDeleteCustomPrompt(payload: any, sendResponse: (msg: any) =
   try {
     await deleteCustomPrompt(payload.promptType);
     sendResponse({ type: 'SUCCESS' });
+  } catch (error: any) {
+    sendResponse({ type: 'ERROR', error: error.message });
+  }
+}
+
+/**
+ * Generate answer to textarea question using CV
+ */
+async function handleGenerateTextareaAnswer(payload: any, sendResponse: (msg: any) => void) {
+  try {
+    const cvId = await getCvId();
+    
+    // Get job context if available
+    const storageData = await chrome.storage.local.get(['lastJobData']);
+    const jobContext = storageData.lastJobData || {};
+    
+    const result = await generateTextareaAnswer(
+      cvId,
+      payload.fieldLabel,
+      payload.userQuestion,
+      payload.includeJobContext ? jobContext : undefined
+    );
+
+    sendResponse({ type: 'SUCCESS', payload: result });
   } catch (error: any) {
     sendResponse({ type: 'ERROR', error: error.message });
   }

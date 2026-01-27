@@ -158,6 +158,7 @@ v1Routes.MapCoverLetterEndpoints();
 v1Routes.MapCvEndpoints();
 v1Routes.MapSettingsEndpoints();
 v1Routes.MapPromptsEndpoints();
+v1Routes.MapTextareaAnswerEndpoints();
 
 // ========== Startup Information ==========
 if (app.Environment.IsDevelopment())

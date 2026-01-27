@@ -91,7 +91,10 @@ export type MessageType =
   | 'VIEW_PROMPTS_DIRECT'
   | 'SAVE_CUSTOM_PROMPT'
   | 'GET_CUSTOM_PROMPT'
-  | 'DELETE_CUSTOM_PROMPT';
+  | 'DELETE_CUSTOM_PROMPT'
+  | 'GENERATE_TEXTAREA_ANSWER'
+  | 'OPEN_TEXTAREA_MODAL'
+  | 'INSERT_TEXTAREA_ANSWER';
 
 export interface ChromeMessage<T = any> {
   type: MessageType;

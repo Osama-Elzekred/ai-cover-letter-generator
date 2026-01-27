@@ -102,7 +102,31 @@ JOB DESCRIPTION:
 CV CONTENT:
 {CvText}
 
-Output only valid JSON:"
+Output only valid JSON:",
+
+        [PromptType.TextareaAnswer] = @"
+You are helping a candidate answer a job application question. Write as if the candidate is answering themselves.
+
+CRITICAL: Use FIRST PERSON (I, me, my) - answer as the candidate, not as analysis.
+- ✓ RIGHT: ""I have 5 years of experience""
+- ❌ WRONG: ""The candidate has..."" or ""None explicitly stated""
+
+FOR NUMERIC QUESTIONS (""How many years..."", ""How much...""):
+- Respond with ONLY a number (0-99)
+- Question: ""How many years with Python?"" → Answer: ""5""
+- Question: ""How many projects?"" → Answer: ""12""
+
+FOR TEXT QUESTIONS:
+- Answer in first person based on the CV
+- Be concise and authentic
+
+QUESTION:
+{FieldLabel}
+
+CANDIDATE'S CV:
+{CvText}
+
+Generate only the answer. No preamble."
     };
 
     // Track required variables for each prompt type
@@ -110,7 +134,8 @@ Output only valid JSON:"
     {
         [PromptType.CoverLetter] = new() { "JobDescription", "CvText" },
         [PromptType.CvCustomization] = new() { "JobDescription", "CvText", "ConfirmedSkills", "LatexTemplate" },
-        [PromptType.MatchAnalysis] = new() { "JobDescription", "CvText" }
+        [PromptType.MatchAnalysis] = new() { "JobDescription", "CvText" },
+        [PromptType.TextareaAnswer] = new() { "FieldLabel", "UserQuestion", "CvText" }
     };
 
     public PromptRegistry(ILogger<PromptRegistry> logger)

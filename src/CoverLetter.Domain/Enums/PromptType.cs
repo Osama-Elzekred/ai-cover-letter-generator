@@ -7,5 +7,6 @@ public enum PromptType
 {
   CoverLetter,
   CvCustomization,
-  MatchAnalysis
+  MatchAnalysis,
+  TextareaAnswer
 }

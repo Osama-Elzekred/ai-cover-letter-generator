@@ -338,6 +338,7 @@ export async function getPromptTemplates(): Promise<{
   cvCustomization: string;
   coverLetter: string;
   matchAnalysis: string;
+  textareaAnswer: string;
 }> {
   return apiRequest('/prompts/templates', {
     method: 'GET',
@@ -349,7 +350,7 @@ export async function getPromptTemplates(): Promise<{
 /**
  * Save custom prompt for a specific type
  */
-export async function saveCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis', prompt: string): Promise<void> {
+export async function saveCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis' | 'textarea-answer', prompt: string): Promise<void> {
   await apiRequest(`/settings/prompts/${promptType}`, {
     method: 'POST',
     body: { prompt },
@@ -359,7 +360,7 @@ export async function saveCustomPrompt(promptType: 'cv-customization' | 'cover-l
 /**
  * Get saved custom prompt for a specific type
  */
-export async function getCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis'): Promise<string | null> {
+export async function getCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis' | 'textarea-answer'): Promise<string | null> {
   try {
     const data = await apiRequest<{ prompt: string }>(`/settings/prompts/${promptType}`, {
       method: 'GET',
@@ -376,8 +377,31 @@ export async function getCustomPrompt(promptType: 'cv-customization' | 'cover-le
 /**
  * Delete saved custom prompt for a specific type
  */
-export async function deleteCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis'): Promise<void> {
+export async function deleteCustomPrompt(promptType: 'cv-customization' | 'cover-letter' | 'match-analysis' | 'textarea-answer'): Promise<void> {
   await apiRequest(`/settings/prompts/${promptType}`, {
     method: 'DELETE',
+  });
+}
+
+/**
+ * Generate answer to a textarea question using CV info
+ */
+export async function generateTextareaAnswer(
+  cvId: string,
+  fieldLabel: string,
+  userQuestion: string,
+  jobContext?: { jobTitle?: string; companyName?: string; jobDescription?: string }
+): Promise<{ answer: string }> {
+  return apiRequest<{ answer: string }>('/textarea-answers/generate', {
+    method: 'POST',
+    body: {
+      cvId,
+      fieldLabel,
+      userQuestion,
+      jobTitle: jobContext?.jobTitle,
+      companyName: jobContext?.companyName,
+      jobDescription: jobContext?.jobDescription,
+    },
+    includeIdempotencyKey: true,
   });
 }

@@ -2,6 +2,738 @@
 // LinkedIn AI Co-Pilot - Premium Integrated UI
 // ============================================
 
+// ============================================
+// Textarea Detection & Icon Injection (Inlined)
+// ============================================
+
+interface TextareaMetadata {
+  element: HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement;
+  fieldName: string;
+  fieldLabel: string;
+  iconContainer: HTMLElement;
+}
+
+// Track all injected icons to avoid duplicates
+const injectedTextareas = new WeakMap<Element, TextareaMetadata>();
+
+/**
+ * LinkedIn input field selectors for job application forms
+ * Detects text inputs, textareas, and select dropdowns in Easy Apply modals
+ */
+const LINKEDIN_TEXTAREA_SELECTORS = [
+  // Easy Apply form inputs (text fields)
+  'input.artdeco-text-input--input[type="text"]',
+  'input[id*="single-line-text-form-component"]',
+  
+  // Easy Apply form selects (dropdowns)
+  'select.fb-dash-form-element__select-dropdown',
+  
+  // Textareas (multiline text)
+  'textarea.fb-multiline-text',
+  'textarea.artdeco-text-input__textarea',
+  'textarea[id*="multiline-text-form-component"]',
+  'textarea[name*="question"]',
+  'textarea[data-field-name]',
+  'textarea.artdeco-inline-feedback-form__textarea',
+  'textarea.ql-editor', // Quill editor used in applications
+  'div[contenteditable="true"].ql-editor', // Rich text editor
+  'textarea[placeholder*="answer"], textarea[placeholder*="question"], textarea[placeholder*="explain"]',
+  'textarea[aria-label*="answer"], textarea[aria-label*="question"], textarea[aria-label*="explain"]',
+];
+
+/**
+ * Detect all textareas on page and inject icons
+ */
+function initializeTextareaDetection(): void {
+  // Initial scan
+  scanAndInjectTextareaIcons();
+
+  // Watch for dynamically added textareas (LinkedIn modals, etc.)
+  const observer = new MutationObserver((mutations) => {
+    // Debounce to avoid excessive scanning
+    clearTimeout((window as any).textareaScanTimeout);
+    (window as any).textareaScanTimeout = setTimeout(() => {
+      scanAndInjectTextareaIcons();
+    }, 300);
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+  });
+
+  console.log('[Textarea Detection] Initialized');
+}
+
+/**
+ * Scan page for form fields and inject icons if not already injected
+ */
+function scanAndInjectTextareaIcons(): void {
+  const fields = document.querySelectorAll<HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement>(
+    LINKEDIN_TEXTAREA_SELECTORS.join(', ')
+  );
+
+  fields.forEach((field) => {
+    if (!injectedTextareas.has(field)) {
+      injectIconForTextarea(field);
+    }
+  });
+}
+
+/**
+ * Inject icon next to a single form field element
+ */
+function injectIconForTextarea(
+  textarea: HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement
+): void {
+  try {
+    // Skip if field is hidden or has no parent
+    if (textarea.offsetParent === null || !textarea.parentElement) {
+      return;
+    }
+
+    // Extract field information - look for associated label
+    let fieldLabel = '';
+    const fieldId = textarea.getAttribute('id');
+    
+    if (fieldId) {
+      // Try to find label by for attribute
+      const label = document.querySelector(`label[for="${fieldId}"]`);
+      if (label) {
+        fieldLabel = label.textContent?.trim() || '';
+      }
+    }
+    
+    // Fallback to aria-label, placeholder, or name
+    if (!fieldLabel) {
+      fieldLabel = textarea.getAttribute('aria-label') || 
+                   textarea.getAttribute('placeholder') || 
+                   textarea.getAttribute('name') || 
+                   'Question';
+    }
+
+    const fieldName = textarea.getAttribute('name') || fieldId || 'field';
+
+    // Create icon container
+    const iconContainer = createIconElement();
+    const metadata: TextareaMetadata = {
+      element: textarea,
+      fieldName,
+      fieldLabel,
+      iconContainer,
+    };
+
+    injectedTextareas.set(textarea, metadata);
+
+    // Find the label (if exists) to position icon next to it
+    const label = document.querySelector(`label[for="${fieldId}"]`);
+    let insertPoint = textarea.parentElement;
+    
+    if (label) {
+      const labelParent = label.parentElement;
+      if (labelParent) {
+        // Create a wrapper for label + icon to align horizontally
+        const labelWrapper = document.createElement('div');
+        labelWrapper.style.cssText = `
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+        `;
+        
+        // Move label and icon into the wrapper
+        labelWrapper.appendChild(label.cloneNode(true));
+        labelWrapper.appendChild(iconContainer);
+        
+        // Replace label with wrapper
+        labelParent.insertBefore(labelWrapper, label);
+        label.remove();
+      } else if (insertPoint) {
+        // Fallback: insert before the input
+        insertPoint.insertBefore(iconContainer, textarea);
+      }
+    } else if (insertPoint) {
+      // Fallback: insert before the input
+      insertPoint.insertBefore(iconContainer, textarea);
+    }
+
+    // Setup click handler
+    const button = iconContainer.querySelector('[data-ai-icon-button]') as HTMLElement;
+    if (button) {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleIconClick(metadata);
+      });
+    }
+
+    // Add hover effects
+    textarea.addEventListener('focus', () => {
+      iconContainer.style.opacity = '1';
+    });
+
+    textarea.addEventListener('blur', () => {
+      // Keep visible on blur, just less prominent
+      iconContainer.style.opacity = '0.7';
+    });
+
+    console.log(`[Textarea Detection] Icon injected for field: ${fieldLabel}`);
+  } catch (error) {
+    console.error('[Textarea Detection] Error injecting icon:', error);
+  }
+}
+
+/**
+ * Create styled icon element (simple sparkle outside input)
+ */
+function createIconElement(): HTMLElement {
+  const container = document.createElement('div');
+  container.setAttribute('data-ai-icon-container', 'true');
+  container.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  `;
+  
+  container.innerHTML = `
+    <button 
+      data-ai-icon-button 
+      type="button" 
+      title="Generate answer using AI and your CV"
+      aria-label="Generate AI answer"
+      style="
+        width: 16px;
+        height: 16px;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        color: #667eea;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        padding: 0;
+        z-index: 10;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+        box-shadow: none;
+        font-weight: bold;
+      "
+    >
+      ✨
+    </button>
+  `;
+
+  // Add hover effect
+  const button = container.querySelector('button');
+  if (button) {
+    button.addEventListener('mouseenter', () => {
+      button.style.opacity = '1';
+      button.style.transform = 'scale(1.2)';
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.opacity = '0.7';
+      button.style.transform = 'scale(1)';
+    });
+  }
+
+  return container;
+}
+
+/**
+ * Handle icon click - generate answer directly
+ */
+async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
+  // Skip dropdowns - can't inject text into them
+  if (metadata.element.tagName === 'SELECT') {
+    alert('AI generation not supported for dropdown fields');
+    return;
+  }
+
+  const button = metadata.iconContainer.querySelector('[data-ai-icon-button]') as HTMLButtonElement;
+  if (!button) return;
+
+  try {
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML = '⏳';
+    button.style.opacity = '1';
+
+    console.log('[Textarea Detection] Generating answer for:', metadata.fieldLabel);
+
+    // Call background to generate answer using the field label as the question
+    const response = await chrome.runtime.sendMessage({
+      type: 'GENERATE_TEXTAREA_ANSWER',
+      payload: {
+        fieldLabel: metadata.fieldLabel,
+        userQuestion: metadata.fieldLabel, // Use label as the question
+        includeJobContext: true,
+      },
+    });
+
+    console.log('[Textarea Detection] Response received:', response);
+
+    if (!response) {
+      console.error('[Textarea Detection] No response from background');
+      throw new Error('No response from background');
+    }
+
+    // Handle response formats:
+    // Format 1: { type: 'SUCCESS', payload: { answer: string } } (from service worker)
+    // Format 2: { answer: string } (direct answer object)
+    // Format 3: string (direct answer text)
+    let answer = '';
+    
+    console.log('[Textarea Detection] Response type:', typeof response, 'Keys:', Object.keys(response || {}));
+    
+    if (response.error) {
+      console.error('[Textarea Detection] API error:', response.error);
+      throw new Error(response.error);
+    }
+    
+    // Extract answer from service worker response format
+    if (response.type === 'SUCCESS' && response.payload) {
+      if (typeof response.payload === 'string') {
+        answer = response.payload;
+      } else if (response.payload.answer) {
+        answer = String(response.payload.answer);
+      }
+    } else if (typeof response === 'string') {
+      // Direct string response
+      answer = response;
+    } else if (response.answer) {
+      // Direct answer object
+      answer = String(response.answer);
+    }
+    
+    if (!answer || answer.trim() === '') {
+      console.error('[Textarea Detection] No answer extracted from response:', response);
+      throw new Error('Invalid response format - no answer found in response');
+    }
+
+    // Inject answer into field
+    const inputElement = metadata.element as HTMLInputElement | HTMLTextAreaElement;
+    inputElement.value = answer;
+
+    console.log('[Textarea Detection] Injected answer:', answer);
+
+    // Trigger change events
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Show success briefly
+    button.innerHTML = '✓';
+    button.style.opacity = '1';
+
+    setTimeout(() => {
+      button.innerHTML = '✨';
+      button.disabled = false;
+      button.style.opacity = '0.7';
+    }, 2000);
+
+    console.log('[Textarea Detection] Answer injected successfully');
+  } catch (error) {
+    console.error('[Textarea Detection] Error generating answer:', error);
+    
+    // Show error state
+    button.innerHTML = '✗';
+    button.style.opacity = '1';
+    button.style.color = '#ef4444';
+    
+    setTimeout(() => {
+      button.innerHTML = '✨';
+      button.style.color = '#667eea';
+      button.disabled = false;
+      button.style.opacity = '0.7';
+    }, 2000);
+    
+    alert(`Error generating answer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Inject answer into textarea
+ * Called from popup/modal when user confirms generated answer
+ */
+function injectAnswerIntoTextarea(answer: string): void {
+  // This will be called from the background script
+  // which identifies the correct textarea via messaging context
+  
+  // For now, inject into the last focused textarea
+  const focusedElement = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
+  
+  if (focusedElement && (focusedElement.tagName === 'TEXTAREA' || focusedElement.tagName === 'INPUT')) {
+    focusedElement.value = answer;
+    
+    // Trigger change event so LinkedIn forms register the input
+    focusedElement.dispatchEvent(new Event('input', { bubbles: true }));
+    focusedElement.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    console.log('[Textarea Detection] Answer injected into field');
+  }
+}
+
+// ============================================
+// Textarea Modal UI (Inlined)
+// ============================================
+
+/**
+ * Create and show modal for textarea question answering
+ */
+function showTextareaModal(fieldLabel: string, onConfirm?: (answer: string) => void): void {
+  // Remove existing modal if present
+  const existing = document.getElementById('ai-textarea-modal-overlay');
+  if (existing) existing.remove();
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'ai-textarea-modal-overlay';
+  overlay.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    ">
+      <div style="
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        width: 90%;
+        max-width: 500px;
+        padding: 32px;
+        max-height: 80vh;
+        overflow-y: auto;
+      ">
+        <h2 style="
+          margin: 0 0 8px 0;
+          font-size: 20px;
+          font-weight: 600;
+          color: #000;
+        ">
+          Generate Answer with AI
+        </h2>
+        
+        <p style="
+          margin: 0 0 24px 0;
+          color: #666;
+          font-size: 14px;
+        ">
+          Ask a question about: <strong>${fieldLabel}</strong>
+        </p>
+
+        <div style="margin-bottom: 20px;">
+          <label style="
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #333;
+          ">
+            Your Question:
+          </label>
+          <textarea 
+            id="ai-textarea-question-input"
+            placeholder="e.g., Why are you interested in this role? How do your skills match the requirements?"
+            style="
+              width: 100%;
+              min-height: 100px;
+              padding: 12px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              font-size: 14px;
+              font-family: inherit;
+              resize: vertical;
+              box-sizing: border-box;
+            "
+          ></textarea>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <label style="
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: #333;
+          ">
+            <input 
+              id="ai-textarea-use-job-context" 
+              type="checkbox" 
+              checked="checked"
+              style="margin-right: 8px; cursor: pointer;"
+            />
+            Include current job context (if available)
+          </label>
+        </div>
+
+        <div style="
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+        ">
+          <button 
+            id="ai-textarea-modal-cancel"
+            style="
+              padding: 10px 20px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              background: white;
+              color: #333;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+              transition: all 0.2s ease;
+            "
+          >
+            Cancel
+          </button>
+          <button 
+            id="ai-textarea-modal-generate"
+            style="
+              padding: 10px 20px;
+              border: none;
+              border-radius: 6px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+              transition: all 0.2s ease;
+            "
+          >
+            Generate Answer
+          </button>
+        </div>
+
+        <div id="ai-textarea-modal-status" style="
+          margin-top: 16px;
+          padding: 12px;
+          border-radius: 6px;
+          font-size: 13px;
+          display: none;
+        "></div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Wire up event listeners
+  const cancelBtn = document.getElementById('ai-textarea-modal-cancel');
+  const generateBtn = document.getElementById('ai-textarea-modal-generate') as HTMLButtonElement;
+  const questionInput = document.getElementById('ai-textarea-question-input') as HTMLTextAreaElement;
+  const useJobContext = document.getElementById('ai-textarea-use-job-context') as HTMLInputElement;
+  const statusDiv = document.getElementById('ai-textarea-modal-status');
+
+  cancelBtn?.addEventListener('click', () => {
+    overlay.remove();
+  });
+
+  generateBtn?.addEventListener('click', async () => {
+    const question = questionInput.value.trim();
+    if (!question) {
+      showStatus(statusDiv!, 'Please enter a question', 'error');
+      return;
+    }
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating...';
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GENERATE_TEXTAREA_ANSWER',
+        payload: {
+          fieldLabel,
+          userQuestion: question,
+          includeJobContext: useJobContext.checked,
+        },
+      });
+
+      if (response.error) {
+        showStatus(statusDiv!, response.error, 'error');
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Answer';
+        return;
+      }
+
+      // Show generated answer
+      showAnswerPreview(overlay, response.answer, fieldLabel, () => {
+        if (onConfirm) onConfirm(response.answer);
+        overlay.remove();
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to generate answer';
+      showStatus(statusDiv!, errorMsg, 'error');
+      generateBtn.disabled = false;
+      generateBtn.textContent = 'Generate Answer';
+    }
+  });
+
+  // Focus on question input
+  setTimeout(() => questionInput?.focus(), 100);
+}
+
+/**
+ * Show generated answer preview
+ */
+function showAnswerPreview(
+  overlay: HTMLElement,
+  answer: string,
+  fieldLabel: string,
+  onInsert: () => void
+): void {
+  const modalContent = overlay.querySelector('[style*="background: white"]') as HTMLElement;
+  if (!modalContent) return;
+
+  modalContent.innerHTML = `
+    <h2 style="
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #000;
+    ">
+      Generated Answer
+    </h2>
+    
+    <p style="
+      margin: 0 0 16px 0;
+      color: #666;
+      font-size: 13px;
+    ">
+      For: <strong>${fieldLabel}</strong>
+    </p>
+
+    <div style="
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 24px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+      white-space: pre-wrap;
+      word-break: break-word;
+    ">
+      ${escapeHtml(answer)}
+    </div>
+
+    <div style="
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    ">
+      <button 
+        id="ai-textarea-preview-edit"
+        style="
+          padding: 10px 20px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          background: white;
+          color: #333;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        "
+      >
+        Edit
+      </button>
+      <button 
+        id="ai-textarea-preview-copy"
+        style="
+          padding: 10px 20px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          background: white;
+          color: #333;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        "
+      >
+        Copy
+      </button>
+      <button 
+        id="ai-textarea-preview-insert"
+        style="
+          padding: 10px 20px;
+          border: none;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        "
+      >
+        Insert Answer
+      </button>
+    </div>
+  `;
+
+  const editBtn = modalContent.querySelector('#ai-textarea-preview-edit');
+  const copyBtn = modalContent.querySelector('#ai-textarea-preview-copy');
+  const insertBtn = modalContent.querySelector('#ai-textarea-preview-insert');
+
+  editBtn?.addEventListener('click', () => {
+    showTextareaModal(fieldLabel, onInsert);
+  });
+
+  copyBtn?.addEventListener('click', () => {
+    navigator.clipboard.writeText(answer).then(() => {
+      const originalText = (copyBtn as HTMLButtonElement).textContent;
+      (copyBtn as HTMLButtonElement).textContent = 'Copied!';
+      setTimeout(() => {
+        (copyBtn as HTMLButtonElement).textContent = originalText;
+      }, 2000);
+    });
+  });
+
+  insertBtn?.addEventListener('click', onInsert);
+}
+
+/**
+ * Show status message in modal
+ */
+function showStatus(statusDiv: HTMLElement, message: string, type: 'error' | 'success' | 'info'): void {
+  const bgColor = type === 'error' ? '#fee' : type === 'success' ? '#efe' : '#eef';
+  const textColor = type === 'error' ? '#c33' : type === 'success' ? '#3c3' : '#33c';
+
+  statusDiv.style.background = bgColor;
+  statusDiv.style.color = textColor;
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = message;
+}
+
+/**
+ * Escape HTML to prevent injection
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ============================================
+// Original LinkedIn Detector Code
+// ============================================
+
 interface JobData {
   jobTitle: string;
   companyName: string;
@@ -1415,8 +2147,12 @@ const observer = new MutationObserver(() => {
 observer.observe(document.body, { childList: true, subtree: true });
 if (window.location.href.includes('linkedin.com/jobs')) injectCoPilotWidget();
 
+// Initialize textarea detection for all LinkedIn pages
+// Start detecting textareas on page load and monitor for dynamic changes
+initializeTextareaDetection();
+
 /**
- * Handle messages from the popup
+ * Handle messages from the popup and background service worker
  */
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
   if (message.type === 'EXTRACT_JOB_DATA') {
@@ -1427,5 +2163,20 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       sendResponse({ type: 'ERROR', error: 'Could not find job details.' });
     }
   }
+  
+  if (message.type === 'OPEN_TEXTAREA_MODAL') {
+    const { fieldLabel } = message.payload;
+    showTextareaModal(fieldLabel, (answer: string) => {
+      injectAnswerIntoTextarea(answer);
+    });
+    sendResponse({ type: 'SUCCESS' });
+  }
+  
+  if (message.type === 'INSERT_TEXTAREA_ANSWER') {
+    const { answer } = message.payload;
+    injectAnswerIntoTextarea(answer);
+    sendResponse({ type: 'SUCCESS' });
+  }
+  
   return true;
 });
