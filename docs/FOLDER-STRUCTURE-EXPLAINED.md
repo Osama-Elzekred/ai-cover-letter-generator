@@ -35,7 +35,7 @@ ai-cover-letter-generator/
 ├── tests/                        ← Unit/integration tests
 ├── docs/                         ← Documentation
 ├── .github/                      ← GitHub workflows, copilot instructions
-├── AiCoverLetter.sln             ← Solution file (groups all projects)
+├── AiCoverLetter.slnx            ← Solution file (groups all projects)
 ├── README.md                     ← Project overview
 └── PROJECT-ROADMAP.md            ← Development roadmap
 ```

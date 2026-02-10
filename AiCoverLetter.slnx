@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CoverLetter.Api/CoverLetter.Api.csproj" />
+    <Project Path="src/CoverLetter.Application/CoverLetter.Application.csproj" />
+    <Project Path="src/CoverLetter.Domain/CoverLetter.Domain.csproj" />
+    <Project Path="src/CoverLetter.Infrastructure/CoverLetter.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CoverLetter.Application.Tests/CoverLetter.Application.Tests.csproj" />
+  </Folder>
+</Solution>
