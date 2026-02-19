@@ -59,16 +59,42 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
                 { "CvText", cv.Content }
             };
 
-            var promptResult = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
-            if (promptResult.IsFailure)
-            {
-                return Result<MatchCvResult>.Failure(promptResult.Errors, promptResult.Type);
-            }
-
-            string prompt = promptResult.Value!;
+            // If a saved custom prompt exists and it contains template variables
+            // ({JobDescription} / {CvText}), it IS the full prompt — use it directly
+            // (Override behaviour) instead of appending it to the default, which would
+            // double the entire JD + CV content.
+            // If it contains no variables, treat it as additional instructions (Append).
+            string prompt;
             if (!string.IsNullOrWhiteSpace(savedCustomPrompt))
             {
-                prompt += $"\n\nADDITIONAL INSTRUCTIONS:\n{savedCustomPrompt}";
+                var resolvedCustom = variables.Aggregate(savedCustomPrompt, (c, kv) =>
+                    c.Replace("{" + kv.Key + "}", kv.Value));
+
+                var isFullTemplate = savedCustomPrompt.Contains("{JobDescription}") ||
+                                     savedCustomPrompt.Contains("{CvText}");
+
+                if (isFullTemplate)
+                {
+                    // Saved prompt is a full template — use it as the entire prompt
+                    prompt = resolvedCustom;
+                }
+                else
+                {
+                    // Saved prompt is just extra instructions — append to default
+                    var baseResult = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
+                    if (baseResult.IsFailure)
+                        return Result<MatchCvResult>.Failure(baseResult.Errors, baseResult.Type);
+
+                    prompt = $"{baseResult.Value}\n\nADDITIONAL INSTRUCTIONS:\n{resolvedCustom}";
+                }
+            }
+            else
+            {
+                var promptResult = _promptRegistry.GetPrompt(PromptType.MatchAnalysis, variables);
+                if (promptResult.IsFailure)
+                    return Result<MatchCvResult>.Failure(promptResult.Errors, promptResult.Type);
+
+                prompt = promptResult.Value!;
             }
 
             var options = new LlmGenerationOptions(

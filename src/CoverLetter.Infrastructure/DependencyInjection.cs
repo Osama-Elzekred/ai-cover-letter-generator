@@ -1,6 +1,7 @@
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Application.Repositories;
 using CoverLetter.Infrastructure.CvParsers;
+using CoverLetter.Infrastructure.LlmProviders;
 using CoverLetter.Infrastructure.LlmProviders.Groq;
 using CoverLetter.Infrastructure.Persistence;
 using CoverLetter.Infrastructure.Repositories;
@@ -8,6 +9,7 @@ using CoverLetter.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Infrastructure;
 
@@ -16,56 +18,62 @@ namespace CoverLetter.Infrastructure;
 /// </summary>
 public static class DependencyInjection
 {
-  public static IServiceCollection AddInfrastructure(
-      this IServiceCollection services,
-      IConfiguration configuration)
-  {
-    // Bind Groq settings
-    services.Configure<GroqSettings>(
-        configuration.GetSection(GroqSettings.SectionName));
-
-    // Register HttpClientFactory for dynamic Groq API clients (BYOK support)
-    services.AddHttpClient("GroqClient");
-
-    // Register PostgreSQL with EF Core + connection resiliency
-    var connectionString = configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-
-    services.AddDbContext<AppDbContext>(options =>
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-      options.UseNpgsql(
-          connectionString,
-          npgsqlOptions =>
-          {
-            npgsqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan.FromSeconds(5),
-                errorCodesToAdd: null);
-            npgsqlOptions.CommandTimeout(30);
-          });
-    });
+        // Bind Groq settings
+        services.Configure<GroqSettings>(
+            configuration.GetSection(GroqSettings.SectionName));
 
-    // Register LLM service
-    services.AddScoped<ILlmService, GroqLlmService>();
+        // Register HttpClientFactory for dynamic Groq API clients (BYOK support)
+        services.AddHttpClient("GroqClient");
 
-    // Register CV parser service
-    services.AddScoped<ICvParserService, CvParserService>();
+        // Register PostgreSQL with EF Core + connection resiliency
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-    // Register query context (Queries use IQueryable directly)
-    services.AddScoped<IQueryContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddDbContext<AppDbContext>(options =>
+        {
+            options.UseNpgsql(
+            connectionString,
+            npgsqlOptions =>
+            {
+                  npgsqlOptions.EnableRetryOnFailure(
+                  maxRetryCount: 3,
+                  maxRetryDelay: TimeSpan.FromSeconds(5),
+                  errorCodesToAdd: null);
+                  npgsqlOptions.CommandTimeout(30);
+              });
+        });
 
-    // Register Unit of Work (Commands call SaveChangesAsync)
-    services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+        // Register LLM service with a logging decorator.
+        // The decorator wraps the real GroqLlmService and logs the full prompt + response
+        // at Debug level — covering every LLM caller automatically without touching handlers.
+        // Toggle visibility via log level: Debug = see prompts, Info = silent.
+        services.AddScoped<GroqLlmService>();
+        services.AddScoped<ILlmService>(sp => new LoggingLlmService(
+            sp.GetRequiredService<GroqLlmService>(),
+            sp.GetRequiredService<ILogger<LoggingLlmService>>()));
 
-    // Register DB-backed repositories (Commands: write operations, aggregates)
-    services.AddScoped<ICvRepository, DbCvRepository>();
-    services.AddScoped<ICoverLetterRepository, CoverLetterRepository>();
-    services.AddScoped<IIdempotencyKeyRepository, DbIdempotencyKeyRepository>();
-    services.AddScoped<IUserPromptRepository, DbUserPromptRepository>();
+        // Register CV parser service
+        services.AddScoped<ICvParserService, CvParserService>();
 
-    // Register LaTeX compiler service
-    services.AddScoped<ILatexCompilerService, LatexCompilerService>();
+        // Register query context (Queries use IQueryable directly)
+        services.AddScoped<IQueryContext>(sp => sp.GetRequiredService<AppDbContext>());
 
-    return services;
-  }
+        // Register Unit of Work (Commands call SaveChangesAsync)
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+
+        // Register DB-backed repositories (Commands: write operations, aggregates)
+        services.AddScoped<ICvRepository, DbCvRepository>();
+        services.AddScoped<ICoverLetterRepository, CoverLetterRepository>();
+        services.AddScoped<IIdempotencyKeyRepository, DbIdempotencyKeyRepository>();
+        services.AddScoped<IUserPromptRepository, DbUserPromptRepository>();
+
+        // Register LaTeX compiler service
+        services.AddScoped<ILatexCompilerService, LatexCompilerService>();
+
+        return services;
+    }
 }

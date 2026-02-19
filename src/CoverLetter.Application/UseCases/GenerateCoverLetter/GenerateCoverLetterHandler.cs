@@ -53,7 +53,7 @@ public sealed class GenerateCoverLetterHandler(
 
       var options = new LlmGenerationOptions(
           SystemMessage: "You are a professional cover letter writer. Respond only with the cover letter text, no additional commentary.",
-          ApiKey: userApiKey  // Use user's key if available, otherwise null (defaults to app's key)
+          ApiKey: userApiKey
       );
 
       var llmResponse = await llmService.GenerateAsync(prompt, options, cancellationToken);
@@ -82,8 +82,9 @@ public sealed class GenerateCoverLetterHandler(
   }
 
   /// <summary>
-  /// Builds the final prompt based on the prompt mode (Append or Override).
-  /// Priority: request.CustomPromptTemplate > savedCustomPrompt > default
+  /// Builds the prompt sent to the LLM.
+  /// Override mode: inline template replaces everything for this call only.
+  /// Append mode / no inline: base is saved prompt if set, otherwise default registry.
   /// </summary>
   private string BuildPrompt(GenerateCoverLetterCommand request, string cvText, string? savedCustomPrompt)
   {
@@ -93,30 +94,37 @@ public sealed class GenerateCoverLetterHandler(
       { "CvText", cvText }
     };
 
-    // Determine effective custom prompt (request overrides saved setting)
-    var effectiveCustomPrompt = request.CustomPromptTemplate ?? savedCustomPrompt;
+    string Resolve(string template) =>
+        variables.Aggregate(template, (c, kv) => c.Replace("{" + kv.Key + "}", kv.Value));
 
-    if (string.IsNullOrWhiteSpace(effectiveCustomPrompt))
+    // ── Override mode: inline replaces everything for this call only ─────
+    if (!string.IsNullOrWhiteSpace(request.CustomPromptTemplate) && request.PromptMode == PromptMode.Override)
     {
-      var promptResult = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
-      return promptResult.IsSuccess ? promptResult.Value! : string.Empty;
+      var resolved = Resolve(request.CustomPromptTemplate);
+      // Inject any missing context so the LLM always has what it needs
+      if (!request.CustomPromptTemplate.Contains("{JobDescription}"))
+        resolved += $"\n\nJOB DESCRIPTION:\n{request.JobDescription}";
+      if (!request.CustomPromptTemplate.Contains("{CvText}"))
+        resolved += $"\n\nCANDIDATE'S CV (use this for all personal details, name, and sign-off):\n{cvText}";
+      return resolved;
     }
 
-    if (request.PromptMode == PromptMode.Override)
+    // ── Base = saved prompt if exists, otherwise default registry ────────
+    string basePrompt;
+    if (!string.IsNullOrWhiteSpace(savedCustomPrompt))
+      basePrompt = Resolve(savedCustomPrompt);
+    else
     {
-      // Override mode - use only custom template
-      // Still allow for variable replacement if they use {JobDescription} or {CvText}
-      var template = effectiveCustomPrompt;
-      return variables.Aggregate(template, (current, variable) =>
-          current.Replace("{" + variable.Key + "}", variable.Value));
+      var baseResult = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
+      if (baseResult.IsFailure) return string.Empty;
+      basePrompt = baseResult.Value!;
     }
 
-    // Append mode (default) - combine default + custom
-    var basePromptResult = promptRegistry.GetPrompt(PromptType.CoverLetter, variables);
-    if (basePromptResult.IsFailure)
-      return string.Empty;
+    // ── Append mode: add inline instructions on top of the base ─────────
+    if (!string.IsNullOrWhiteSpace(request.CustomPromptTemplate))
+      return $"{basePrompt}\n\nADDITIONAL INSTRUCTIONS:\n{Resolve(request.CustomPromptTemplate)}";
 
-    return $"{basePromptResult.Value}\n\nADDITIONAL INSTRUCTIONS:\n{effectiveCustomPrompt}";
+    return basePrompt;
   }
 
   /// <summary>

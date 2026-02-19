@@ -18,19 +18,37 @@ public sealed partial class PromptRegistry : IPromptRegistry
     private readonly Dictionary<PromptType, string> _templates = new()
     {
         [PromptType.CoverLetter] = @"
-Write a compelling, professional cover letter based on the following information.
+You are a professional cover letter writer. Your task is to write a highly tailored, specific cover letter.
 
-### GUIDELINES:
-- Write in a professional yet engaging tone
-- Highlight relevant experience and skills that match the job requirements
-- Show enthusiasm for the role and company
-- Keep it concise (3-4 paragraphs)
-- Include a strong opening that grabs attention
-- Connect the candidate's achievements to the job requirements
-- End with a clear call to action
-- Do NOT include placeholder text like [Company Name] - if unknown, write generically
-- Do NOT make up information not present in the CV
-- Make it look human-written and avoid AI-detection triggers
+### STEP 1 — ANALYSE THE JOB DESCRIPTION:
+Before writing, extract the following from the job description:
+- Company name (use it naturally throughout the letter)
+- Job title / role
+- Top 3-5 required skills or technologies
+- Any stated company values, mission, or culture signals
+- Specific responsibilities mentioned
+
+### STEP 2 — ANALYSE THE CV:
+From the candidate's CV extract:
+- Full name (use it in the sign-off — NEVER write [Your Name])
+- Most relevant experience, projects, and achievements
+- Skills that directly match the job requirements
+- Quantified results if present (e.g. ""reduced latency by 30%"")
+
+### STEP 3 — WRITE THE COVER LETTER:
+Structure (3-4 tight paragraphs):
+1. **Opening**: Name the specific role AND the company. Show genuine knowledge of what the company does or its mission. State why you are a strong fit in one sentence.
+2. **Value paragraph**: Pick the 2-3 most relevant experiences from the CV and connect them directly to the job's key requirements. Mirror the company's language and keywords from the job description. Use concrete numbers/outcomes where available.
+3. **Culture/motivation paragraph**: Show why this specific company excites the candidate (based on what the job description reveals about the company). Make it personal, not generic.
+4. **Closing**: Clear call to action. Express enthusiasm to discuss further.
+
+### RULES:
+- NEVER use placeholder brackets like [Company Name], [Your Name], [Role], [Your City] — use real extracted values or omit
+- Do NOT fabricate skills, titles, or achievements not present in the CV
+- Use the candidate's actual name from the CV in the sign-off
+- Mirror keywords and terminology from the job description naturally
+- Keep total length to 300-400 words
+- Write in first person; sound human and confident, not robotic
 
 JOB DESCRIPTION:
 {JobDescription}

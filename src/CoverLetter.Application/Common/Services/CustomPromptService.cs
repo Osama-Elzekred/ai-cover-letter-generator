@@ -87,7 +87,7 @@ public sealed class CustomPromptService : ICustomPromptService
       AbsoluteExpirationRelativeToNow = CacheDuration
     });
 
-    _logger.LogInformation("Custom prompt saved for {PromptType}", type);
+    // _logger.LogInformation("Custom prompt saved for {PromptType}", type);
   }
 
   public async Task DeleteUserPromptAsync(PromptType type, CancellationToken cancellationToken = default)

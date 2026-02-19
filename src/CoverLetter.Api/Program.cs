@@ -11,13 +11,23 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ========== LLM Log-Level Switch ==========
+// Singleton that controls the minimum log level for the LLM provider namespace at runtime.
+// Starts OFF (Information) in all environments — no prompt/response logging by default.
+// Toggle via PUT /api/v1/debug/llm-log-level — no restart needed.
+var llmLogLevelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
+builder.Services.AddSingleton(llmLogLevelSwitch);
 
 // ========== Serilog Configuration ==========
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
+    .MinimumLevel.Override("CoverLetter.Infrastructure.LlmProviders", llmLogLevelSwitch)
     .Enrich.FromLogContext());
 
 // ========== Global Exception Handler ==========
@@ -159,6 +169,9 @@ v1Routes.MapCvEndpoints();
 v1Routes.MapSettingsEndpoints();
 v1Routes.MapPromptsEndpoints();
 v1Routes.MapTextareaAnswerEndpoints();
+
+if (app.Environment.IsDevelopment())
+    v1Routes.MapDebugEndpoints();
 
 // ========== Startup Information ==========
 if (app.Environment.IsDevelopment())

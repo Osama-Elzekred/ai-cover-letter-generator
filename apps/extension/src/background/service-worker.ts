@@ -19,7 +19,7 @@ import type { ChromeMessage } from '../types/index.js';
  * Handle messages from popup and content scripts
  */
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
-  console.log('[Service Worker] Received message:', message.type);
+  // console.log('[Service Worker] Received message:', message.type);
 
   // Return true to indicate we will send a response asynchronously
   
@@ -108,7 +108,7 @@ async function handleCustomizeCv(jobData: any, sendResponse: (msg: any) => void)
     const result = await customizeCv(cvId, fullJobDesc, {
       selectedKeywords: jobData.selectedKeywords,
       customPromptTemplate: jobData.customPromptTemplate,
-      promptMode: jobData.promptMode || 0
+      promptMode: jobData.promptMode ?? 0
     });
     
     // Persist editor state for the popup
@@ -147,7 +147,7 @@ async function handleGenerateCoverLetter(jobData: any, sendResponse: (msg: any) 
       cvId,
       jobDescription: fullJobDesc,
       customPromptTemplate: jobData.customPromptTemplate,
-      promptMode: jobData.promptMode || 1
+      promptMode: jobData.promptMode ?? 0
     });
     
     // Persist cover letter for the popup
