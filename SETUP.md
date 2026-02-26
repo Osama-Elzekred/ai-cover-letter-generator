@@ -3,11 +3,43 @@
 ## Prerequisites
 - .NET 10 SDK
 - Docker & Docker Compose
-- PostgreSQL 18 (via Docker)
+- A Groq API key (get one free at https://console.groq.com/keys)
 
 ---
 
-## 1. Clone & Install Dependencies
+## Quick Setup (Recommended)
+
+For new users, run the automated setup script:
+
+```bash
+git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
+cd ai-cover-letter-generator
+bash setup.sh
+```
+
+The script will:
+- ✅ Restore .NET dependencies
+- ✅ Prompt for your Groq API key and database password
+- ✅ Configure user secrets
+- ✅ Start PostgreSQL in Docker
+- ✅ Build the LaTeX compiler image
+- ✅ Run database migrations
+
+After setup completes:
+```bash
+cd src/CoverLetter.Api
+dotnet run
+```
+
+Then open: `http://localhost:5000/scalar/v1`
+
+---
+
+## Manual Setup (Step-by-Step)
+
+If you prefer to understand each step or need to troubleshoot:
+
+### 1. Clone & Install Dependencies
 
 ```bash
 git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
@@ -17,36 +49,17 @@ dotnet restore
 
 ---
 
-## 2. Configure Environment
-
-### a) Copy Configuration Templates
-
-```bash
-# From the project root:
-cp docker-compose.dev.yml.template docker-compose.dev.yml
-cp src/CoverLetter.Api/appsettings.json.template src/CoverLetter.Api/appsettings.json
-```
-
-### b) Update `docker-compose.dev.yml`
-
-Edit `docker-compose.dev.yml` and change the password:
-
-```yaml
-environment:
-  POSTGRES_PASSWORD: your_secure_dev_password
-```
-
-### c) Set User Secrets for Development
+### 2. Set User Secrets for Development
 
 User secrets are stored **outside the repo** and won't be committed.
 
 ```bash
 cd src/CoverLetter.Api
 
-# Set database connection string
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=coverletter_dev;Username=postgres;Password=your_secure_dev_password"
+# Set database connection string (use your own password)
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=coverletter_dev;Username=postgres;Password=postgres"
 
-# Set Groq API Key
+# Set Groq API Key (get from https://console.groq.com/keys)
 dotnet user-secrets set "Groq:ApiKey" "your-groq-api-key-here"
 ```
 
@@ -57,7 +70,7 @@ dotnet user-secrets list
 
 ---
 
-## 3. Start PostgreSQL
+### 3. Start PostgreSQL
 
 ```bash
 docker-compose -f docker-compose.dev.yml up -d
@@ -70,7 +83,20 @@ docker ps  # Should show coverletter_postgres
 
 ---
 
-## 4. Run Database Migrations
+### 4. Build LaTeX Compiler Image
+
+The API uses Docker to compile LaTeX → PDF in isolated containers.
+
+```bash
+# Build the LaTeX compiler image using docker-compose
+docker-compose -f docker-compose.dev.yml build latex-compiler
+```
+
+**Why:** Sandboxes untrusted LaTeX code with no network, limited resources, and read-only filesystem (same pattern AWS Lambda uses). Each compilation spawns a fresh container and exits immediately.
+
+---
+
+### 5. Run Database Migrations
 
 ```bash
 cd src/CoverLetter.Api
@@ -79,7 +105,7 @@ dotnet ef database update
 
 ---
 
-## 5. Start the API
+### 6. Start the API
 
 ```bash
 cd src/CoverLetter.Api
@@ -88,12 +114,11 @@ dotnet run
 
 The API will start at `https://localhost:5001` or `http://localhost:5000`
 
-### View API Docs
-Open your browser: `http://localhost:5000/scalar/v1`
+**View API Docs:** Open your browser at `http://localhost:5000/scalar/v1`
 
 ---
 
-## 6. Test the API
+### 7. Test the API
 
 Use the HTTP test files:
 ```bash
@@ -113,10 +138,11 @@ curl http://localhost:5000/health
 
 | File | Purpose | In Repo? | Notes |
 |------|---------|----------|-------|
-| `appsettings.json` | Shared config with safe defaults | ✅ YES | Copy from `.template` |
-| `appsettings.Development.json` | Dev overrides (if needed) | ❌ NO | Use user secrets instead |
-| `docker-compose.dev.yml` | Local Docker setup | ❌ NO | Copy from `.template` |
-| User Secrets | Credentials (stored locally) | ❌ NO | Set via `dotnet user-secrets` |
+| `docker-compose.dev.yml` | Local Docker setup (Postgres + LaTeX) | ✅ YES | Default password: `postgres` (dev only) |
+| `appsettings.json` | Shared API config with safe defaults | ✅ YES | No secrets, safe to commit |
+| User Secrets | API keys & credentials | ❌ NO | Set via `dotnet user-secrets` or `setup.sh` |
+
+**Note:** Sensitive credentials (Groq API key, custom DB passwords) are stored in user secrets outside the repo.
 
 ---
 
@@ -145,6 +171,11 @@ docker-compose -f docker-compose.dev.yml down -v
 ### Groq API Errors
 - Verify your API key is set: `dotnet user-secrets list | grep Groq`
 - Check your Groq account has remaining API quota
+
+### LaTeX Compilation Fails
+- Ensure Docker is running
+- Verify the image exists: `docker images | grep latexmk-compiler`
+- Rebuild if needed: `docker-compose -f docker-compose.dev.yml build latex-compiler`
 
 ---
 

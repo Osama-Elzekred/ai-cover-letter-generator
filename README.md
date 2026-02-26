@@ -68,14 +68,26 @@ This project is intended as a **full-stack learning system** covering advanced b
 
 ## 🚀 Getting Started
 
+### Quick Setup
+
+```bash
+git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
+cd ai-cover-letter-generator
+bash setup.sh
+```
+
+The setup script will guide you through configuration. Then:
+
+```bash
+cd src/CoverLetter.Api
+dotnet run
+```
+
+Open: `http://localhost:5000/scalar/v1`
+
+For detailed instructions, see [SETUP.md](SETUP.md).
+
 ### Prerequisites
 - .NET 10 SDK
-- GitHub Copilot / Copilot Chat (optional)
-- VSCode recommended
-- A Groq API key (free)
-
-### Set secret:
-```bash
-cd CoverLetter.Api
-dotnet user-secrets init
-dotnet user-secrets set GROQ_API_KEY "gsk_xxx"
+- Docker & Docker Compose
+- A Groq API key (free at https://console.groq.com/keys)

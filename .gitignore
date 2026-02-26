@@ -81,6 +81,7 @@ appsettings.*.json
 # DO NOT commit ANY appsettings.json - they contain real API keys and DB credentials!
 docker-compose.*.yml
 !docker-compose.yml
+!docker-compose.dev.yml
 secrets.json
 # User secrets stored outside the project (Windows Registry / ~/.microsoft/usersecrets)
 **/user-secrets.json

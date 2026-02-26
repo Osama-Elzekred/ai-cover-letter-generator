@@ -4,7 +4,7 @@ services:
     container_name: coverletter_postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: changeme  # ⚠️ Change this to a secure password for development
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: coverletter_dev
     ports:
       - "5432:5432"
@@ -17,6 +17,16 @@ services:
       retries: 5
     networks:
       - coverletter_network
+
+  latex-compiler:
+    build:
+      context: ./src/CoverLetter.Infrastructure/Latex
+      dockerfile: Dockerfile
+    image: latexmk-compiler:1
+    container_name: latexmk_compiler_builder
+    command: echo "LaTeX compiler image built successfully"
+    profiles:
+      - tools
 
 volumes:
   postgres_data:
