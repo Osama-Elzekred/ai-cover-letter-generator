@@ -27,7 +27,16 @@ async function build() {
     fs.mkdirSync(dir, { recursive: true });
   });
 
-  // 3. Compile TypeScript
+  // 3. Install dependencies
+  console.log('📥 Installing npm dependencies...');
+  try {
+    execSync('npm install', { stdio: 'inherit' });
+  } catch (error) {
+    console.error('❌ npm install failed.');
+    process.exit(1);
+  }
+
+  // 4. Compile TypeScript
   console.log('📦 Compiling TypeScript...');
   try {
     execSync('npx tsc', { stdio: 'inherit' });
@@ -36,7 +45,7 @@ async function build() {
     process.exit(1);
   }
 
-  // 4. Copy static files
+  // 5. Copy static files
   console.log('📄 Copying static files...');
   const filesToCopy = [
     { src: 'manifest.json', dest: 'dist/manifest.json' },
@@ -53,7 +62,7 @@ async function build() {
     }
   });
 
-  // 5. Copy icons
+  // 6. Copy icons
   console.log('🖼️ Copying icons...');
   const assetsDir = 'assets';
   if (fs.existsSync(assetsDir)) {

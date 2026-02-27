@@ -808,13 +808,38 @@ function extractJobData(): JobData | null {
 }
 
 /**
+ * Retry injecting the widget if the parent element isn't ready yet
+ */
+let retryCount = 0;
+const maxRetries = 15; // ~7.5 seconds with backoff
+
+function retryInjectWidget(): void {
+  if (retryCount >= maxRetries) {
+    console.warn('[AI Co-Pilot] Failed to find parent element after retries');
+    return;
+  }
+
+  const delay = Math.min(500 * (retryCount + 1), 2000);
+  retryCount++;
+
+  setTimeout(() => {
+    injectCoPilotWidget();
+  }, delay);
+}
+
+/**
  * Main Injection Entry Point
  */
 function injectCoPilotWidget() {
   if (document.getElementById('ai-copilot-container')) return;
 
   const parent = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
-  if (!parent) return;
+  if (!parent) {
+    retryInjectWidget();
+    return;
+  }
+
+  retryCount = 0;
 
   const container = document.createElement('div');
   container.id = 'ai-copilot-container';
@@ -2138,10 +2163,15 @@ function injectStyles() {
 
 // --- Observer Logic ---
 
+let mutationTimeout: ReturnType<typeof setTimeout> | undefined;
+
 const observer = new MutationObserver(() => {
-  if (window.location.href.includes('linkedin.com/jobs')) {
-    injectCoPilotWidget();
-  }
+  clearTimeout(mutationTimeout);
+  mutationTimeout = setTimeout(() => {
+    if (window.location.href.includes('linkedin.com/jobs')) {
+      injectCoPilotWidget();
+    }
+  }, 1000); // Debounce by 1 second to prevent excessive DOM traversal
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
