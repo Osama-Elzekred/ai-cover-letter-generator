@@ -1133,7 +1133,7 @@ function renderLetterTab(): string {
             id="widget-letter-content" 
             class="letter-textarea" 
             spellcheck="true" 
-            style="width: 100%; height: 350px; padding: 12px; border: 1px solid #334155; border-radius: 8px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 11px; line-height: 1.5; color: #f8fafc; background: #1e293b; resize: vertical; box-sizing: border-box; white-space: pre; word-wrap: normal; overflow: auto; outline: none; margin: 0; color-scheme: dark;"
+            style="width: 100%; height: 350px; padding: 12px; border: 1px solid #334155; border-radius: 8px; font-family: 'Segoe UI', 'Roboto', sans-serif; font-size: 13px; line-height: 1.6; color: #f8fafc; background: #1e293b; resize: vertical; box-sizing: border-box; white-space: pre-wrap; word-wrap: break-word; overflow: auto; outline: none; margin: 0; color-scheme: dark;"
           >${lastGeneratedLetter.coverLetter}</textarea>
         </div>
         
