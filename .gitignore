@@ -128,5 +128,3 @@ k6/results/
 tmp/
 temp/
 *.tmp
-/docker-compose.dev.yml
-/src/CoverLetter.Api/appsettings.json
