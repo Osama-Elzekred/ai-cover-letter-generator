@@ -1,3 +1,4 @@
+using CoverLetter.Domain.Common;
 using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -43,16 +44,38 @@ public sealed class IdempotencyBehavior<TRequest, TResponse>(
       return await next();
     });
 
-    // Log if we returned cached response (response will be null only if factory returned null)
-    if (response != null)
+    if (response is null)
+      return response!;
+
+    // Do not retain failed Result responses in idempotency cache.
+    // This prevents a transient upstream failure (e.g., provider 429) from being replayed
+    // for 24 hours for the same key.
+    if (!IsCacheableResponse(response))
     {
-      logger.LogInformation(
-          "Processed cached request with idempotency key {IdempotencyKey} (Request: {RequestType})",
+      cache.Remove(cacheKey);
+      logger.LogDebug(
+          "Removed non-cacheable idempotent response for key {IdempotencyKey} (Request: {RequestType})",
           request.IdempotencyKey,
           typeof(TRequest).Name);
     }
+    else
+    {
+      logger.LogDebug(
+        "Processed cached request with idempotency key {IdempotencyKey} (Request: {RequestType})",
+        request.IdempotencyKey,
+        typeof(TRequest).Name);
+    }
 
-    return response!;
+    return response;
+  }
+
+  private static bool IsCacheableResponse(TResponse response)
+  {
+    return response switch
+    {
+      Result result => result.IsSuccess,
+      _ => true
+    };
   }
 }
 

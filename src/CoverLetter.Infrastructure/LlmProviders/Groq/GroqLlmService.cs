@@ -1,7 +1,9 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Domain.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Refit;
+using System.Net;
 using System.Net.Http.Headers;
 
 namespace CoverLetter.Infrastructure.LlmProviders.Groq;
@@ -26,7 +28,7 @@ public sealed class GroqLlmService : ILlmService
     _logger = logger;
   }
 
-  public async Task<LlmResponse> GenerateAsync(
+  public async Task<Result<LlmResponse>> GenerateAsync(
       string prompt,
       LlmGenerationOptions? options = null,
       CancellationToken cancellationToken = default)
@@ -34,12 +36,13 @@ public sealed class GroqLlmService : ILlmService
     var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
     // Determine which API key to use: user's key (BYOK) or default app key
-    if (options?.ApiKey != null)
-    {
-      _logger.LogDebug("Using user's Groq API key for request.");
-    }
-    var apiKey = options?.ApiKey ?? _settings.ApiKey;
     var isUserKey = !string.IsNullOrWhiteSpace(options?.ApiKey);
+    var apiKey = options?.ApiKey ?? _settings.ApiKey;
+
+    _logger.LogDebug(
+        "Groq key selection -> source: {KeySource}, key: {MaskedKey}",
+        isUserKey ? "user" : "default",
+        MaskApiKey(apiKey));
 
     // Create Groq API client with appropriate API key
     var groqApi = CreateGroqApiClient(apiKey);
@@ -59,13 +62,15 @@ public sealed class GroqLlmService : ILlmService
         MaxTokens: options?.MaxTokens ?? _settings.MaxTokens
     );
 
-    var response = await groqApi.ChatCompletionAsync(request, cancellationToken);
-    stopwatch.Stop();
+    try
+    {
+      var response = await groqApi.ChatCompletionAsync(request, cancellationToken);
+      stopwatch.Stop();
 
-    var content = response.Choices.FirstOrDefault()?.Message.Content
-        ?? throw new InvalidOperationException("No content returned from Groq API.");
+      var content = response.Choices.FirstOrDefault()?.Message.Content
+          ?? throw new InvalidOperationException("No content returned from Groq API.");
 
-    _logger.LogInformation(
+      _logger.LogDebug(
         "Groq API responded in {ElapsedMs}ms - Model: {Model}, Tokens: {PromptTokens}→{CompletionTokens} (Using {KeyType} key)",
         stopwatch.ElapsedMilliseconds,
         response.Model,
@@ -73,12 +78,27 @@ public sealed class GroqLlmService : ILlmService
         response.Usage.CompletionTokens,
         isUserKey ? "user's" : "default");
 
-    return new LlmResponse(
-        Content: content,
-        Model: response.Model,
-        PromptTokens: response.Usage.PromptTokens,
-        CompletionTokens: response.Usage.CompletionTokens
-    );
+      return Result.Success(new LlmResponse(
+          Content: content,
+          Model: response.Model,
+          PromptTokens: response.Usage.PromptTokens,
+          CompletionTokens: response.Usage.CompletionTokens
+      ));
+    }
+    catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+    {
+      stopwatch.Stop();
+      _logger.LogWarning(ex, "Groq provider rate limit hit after {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+      return Result.Failure<LlmResponse>(
+          "AI provider rate limit reached. Please retry in a few seconds, or use your own API key in Settings (BYOK) for higher limits.",
+          ResultType.TooManyRequests);
+    }
+  }
+
+  private static string MaskApiKey(string apiKey)
+  {
+    if (string.IsNullOrWhiteSpace(apiKey)) return "(empty)";
+    return apiKey.Length > 11 ? $"{apiKey[..7]}...{apiKey[^4..]}" : "gsk_***";
   }
 
   /// <summary>

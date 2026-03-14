@@ -28,6 +28,7 @@ public static class ResultExtensions
         ResultType.Unauthorized => Results.Unauthorized(),
         ResultType.Forbidden => Results.Problem(CreateProblemDetails(result.Errors, 403, "Forbidden")),
         ResultType.Conflict => Results.Conflict(CreateProblemDetails(result.Errors, 409, "Conflict")),
+        ResultType.TooManyRequests => Results.Problem(CreateProblemDetails(result.Errors, 429, "Too Many Requests")),
         _ => Results.Problem(CreateProblemDetails(result.Errors, 500, "Internal Server Error"))
       };
     }

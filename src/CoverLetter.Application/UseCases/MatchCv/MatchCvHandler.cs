@@ -103,7 +103,10 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
             );
 
             var response = await _llmService.GenerateAsync(prompt, options, cancellationToken);
-            var result = ParseLlmResponse(response.Content);
+            if (response.IsFailure)
+                return Result<MatchCvResult>.Failure(response.Errors, response.Type);
+
+            var result = ParseLlmResponse(response.Value!.Content);
 
             if (result == null)
             {
@@ -115,8 +118,8 @@ public sealed class MatchCvHandler : IRequestHandler<MatchCvCommand, Result<Matc
                 result.MatchingKeywords,
                 result.MissingKeywords,
                 result.AnalysisSummary,
-                response.Model,
-                response.PromptTokens + response.CompletionTokens
+                response.Value!.Model,
+                response.Value.PromptTokens + response.Value.CompletionTokens
             ));
         }
         catch (Exception ex)

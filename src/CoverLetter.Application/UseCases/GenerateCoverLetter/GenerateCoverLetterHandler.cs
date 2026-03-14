@@ -57,20 +57,22 @@ public sealed class GenerateCoverLetterHandler(
       );
 
       var llmResponse = await llmService.GenerateAsync(prompt, options, cancellationToken);
+      if (llmResponse.IsFailure)
+        return Result<GenerateCoverLetterResult>.Failure(llmResponse.Errors, llmResponse.Type);
 
       var result = new GenerateCoverLetterResult(
-          CoverLetter: llmResponse.Content.Trim(),
-          Model: llmResponse.Model,
-          PromptTokens: llmResponse.PromptTokens,
-          CompletionTokens: llmResponse.CompletionTokens,
+          CoverLetter: llmResponse.Value!.Content.Trim(),
+          Model: llmResponse.Value.Model,
+          PromptTokens: llmResponse.Value.PromptTokens,
+          CompletionTokens: llmResponse.Value.CompletionTokens,
           GeneratedAt: DateTime.UtcNow
       );
 
       logger.LogInformation(
           "Cover letter generated using {Model} - Tokens: {PromptTokens}→{CompletionTokens}",
-          llmResponse.Model,
-          llmResponse.PromptTokens,
-          llmResponse.CompletionTokens);
+          llmResponse.Value.Model,
+          llmResponse.Value.PromptTokens,
+          llmResponse.Value.CompletionTokens);
 
       return Result.Success(result);
     }

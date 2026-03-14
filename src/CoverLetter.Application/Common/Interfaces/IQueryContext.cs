@@ -13,4 +13,5 @@ public interface IQueryContext
   IQueryable<PromptTemplate> PromptTemplates { get; }
   IQueryable<IdempotencyKey> IdempotencyKeys { get; }
   IQueryable<UserPrompt> UserPrompts { get; }
+  IQueryable<UserApiKey> UserApiKeys { get; }
 }

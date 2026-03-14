@@ -20,12 +20,14 @@ public class AppDbContext : DbContext, IQueryContext, IUnitOfWork
   public DbSet<PromptTemplate> PromptTemplates { get; set; } = null!;
   public DbSet<IdempotencyKey> IdempotencyKeys { get; set; } = null!;
   public DbSet<UserPrompt> UserPrompts { get; set; } = null!;
+  public DbSet<UserApiKey> UserApiKeys { get; set; } = null!;
 
   IQueryable<Cv> IQueryContext.Cvs => Cvs;
   IQueryable<CoverLetterEntity> IQueryContext.CoverLetters => CoverLetters;
   IQueryable<PromptTemplate> IQueryContext.PromptTemplates => PromptTemplates;
   IQueryable<IdempotencyKey> IQueryContext.IdempotencyKeys => IdempotencyKeys;
   IQueryable<UserPrompt> IQueryContext.UserPrompts => UserPrompts;
+  IQueryable<UserApiKey> IQueryContext.UserApiKeys => UserApiKeys;
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {

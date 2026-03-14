@@ -39,12 +39,12 @@ public static class DependencyInjection
             connectionString,
             npgsqlOptions =>
             {
-                  npgsqlOptions.EnableRetryOnFailure(
-                  maxRetryCount: 3,
-                  maxRetryDelay: TimeSpan.FromSeconds(5),
-                  errorCodesToAdd: null);
-                  npgsqlOptions.CommandTimeout(30);
-              });
+                npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+                npgsqlOptions.CommandTimeout(30);
+            });
         });
 
         // Register LLM service with a logging decorator.
@@ -70,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<ICoverLetterRepository, CoverLetterRepository>();
         services.AddScoped<IIdempotencyKeyRepository, DbIdempotencyKeyRepository>();
         services.AddScoped<IUserPromptRepository, DbUserPromptRepository>();
+        services.AddScoped<IUserApiKeyRepository, DbUserApiKeyRepository>();
 
         // Register LaTeX compiler service
         services.AddScoped<ILatexCompilerService, LatexCompilerService>();

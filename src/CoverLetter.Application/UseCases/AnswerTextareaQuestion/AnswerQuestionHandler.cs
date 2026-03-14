@@ -54,17 +54,19 @@ public sealed class AnswerQuestionHandler(
       );
 
       var llmResponse = await llmService.GenerateAsync(prompt, options, cancellationToken);
+      if (llmResponse.IsFailure)
+        return Result<AnswerQuestionResult>.Failure(llmResponse.Errors, llmResponse.Type);
 
       var result = new AnswerQuestionResult(
-          Answer: llmResponse.Content.Trim()
+          Answer: llmResponse.Value!.Content.Trim()
       );
 
       logger.LogInformation(
           "Textarea answer generated for field '{FieldLabel}' using {Model} - Tokens: {PromptTokens}→{CompletionTokens}",
           request.FieldLabel,
-          llmResponse.Model,
-          llmResponse.PromptTokens,
-          llmResponse.CompletionTokens);
+          llmResponse.Value.Model,
+          llmResponse.Value.PromptTokens,
+          llmResponse.Value.CompletionTokens);
 
       return Result.Success(result);
     }

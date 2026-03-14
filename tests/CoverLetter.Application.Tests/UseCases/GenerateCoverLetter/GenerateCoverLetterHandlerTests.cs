@@ -61,12 +61,12 @@ public class GenerateCoverLetterHandlerTests
         Arg.Any<string>(),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns(new LlmResponse(
-            Content: expectedContent,
-            Model: "llama-3.3-70b-versatile",
-            PromptTokens: 100,
-            CompletionTokens: 200
-        ));
+      .Returns(Task.FromResult(Result.Success(new LlmResponse(
+        Content: expectedContent,
+        Model: "llama-3.3-70b-versatile",
+        PromptTokens: 100,
+        CompletionTokens: 200
+      ))));
 
     // Act
     var result = await _handler.Handle(command, CancellationToken.None);
@@ -93,7 +93,7 @@ public class GenerateCoverLetterHandlerTests
         Arg.Any<string>(),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns<LlmResponse>(_ => throw new HttpRequestException("API is down"));
+      .Returns(Task.FromResult(Result.Failure<LlmResponse>("API is down")));
 
     // Act
     var result = await _handler.Handle(command, CancellationToken.None);
@@ -119,7 +119,7 @@ public class GenerateCoverLetterHandlerTests
         Arg.Do<string>(p => capturedPrompt = p),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns(new LlmResponse("Generated content", "model", 50, 100));
+      .Returns(Task.FromResult(Result.Success(new LlmResponse("Generated content", "model", 50, 100))));
 
     // Act
     await _handler.Handle(command, CancellationToken.None);
@@ -144,7 +144,7 @@ public class GenerateCoverLetterHandlerTests
         Arg.Any<string>(),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns(new LlmResponse("Content", "model", 50, 100));
+      .Returns(Task.FromResult(Result.Success(new LlmResponse("Content", "model", 50, 100))));
 
     // Act
     await _handler.Handle(command, CancellationToken.None);
@@ -172,7 +172,7 @@ public class GenerateCoverLetterHandlerTests
         Arg.Do<string>(p => capturedPrompt = p),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns(new LlmResponse("Content", "model", 10, 20));
+      .Returns(Task.FromResult(Result.Success(new LlmResponse("Content", "model", 10, 20))));
 
     // Act
     await _handler.Handle(command, CancellationToken.None);
@@ -201,7 +201,7 @@ public class GenerateCoverLetterHandlerTests
         Arg.Do<string>(p => capturedPrompt = p),
         Arg.Any<LlmGenerationOptions>(),
         Arg.Any<CancellationToken>())
-        .Returns(new LlmResponse("Content", "model", 10, 20));
+      .Returns(Task.FromResult(Result.Success(new LlmResponse("Content", "model", 10, 20))));
 
     // Act
     await _handler.Handle(command, CancellationToken.None);

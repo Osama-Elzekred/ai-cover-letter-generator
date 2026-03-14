@@ -1,3 +1,5 @@
+using CoverLetter.Domain.Common;
+
 namespace CoverLetter.Application.Common.Interfaces;
 
 /// <summary>
@@ -8,11 +10,10 @@ public interface ILlmService
 {
     /// <summary>
     /// Generates text based on the provided prompt and optional parameters.
+    /// Returns a failure result for provider-level errors (e.g. rate-limit) instead of throwing,
+    /// so callers can treat LLM failures the same as any other business failure.
     /// </summary>
-    /// <param name="prompt">The user prompt/instruction</param>
-    /// <param name="options">Optional generation parameters (system message, temperature, etc.)</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    Task<LlmResponse> GenerateAsync(
+    Task<Result<LlmResponse>> GenerateAsync(
         string prompt,
         LlmGenerationOptions? options = null,
         CancellationToken cancellationToken = default);

@@ -1,5 +1,6 @@
 using CoverLetter.Api.Extensions;
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Application.Repositories;
 using CoverLetter.Domain.Common;
 using CoverLetter.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,23 @@ namespace CoverLetter.Api.Endpoints;
 /// </summary>
 public static class SettingsEndpoints
 {
+  private const string GroqProviderRoute = "groq";
   private static readonly TimeSpan ApiKeyCacheDuration = TimeSpan.FromDays(30);
+  private static readonly IReadOnlyDictionary<string, PromptType> PromptTypeMap =
+    new Dictionary<string, PromptType>(StringComparer.OrdinalIgnoreCase)
+    {
+      ["cv-customization"] = PromptType.CvCustomization,
+      ["cover-letter"] = PromptType.CoverLetter,
+      ["match-analysis"] = PromptType.MatchAnalysis,
+      ["textarea-answer"] = PromptType.TextareaAnswer
+    };
+
+  private static readonly string AllowedPromptTypes = string.Join(", ", PromptTypeMap.Keys.OrderBy(x => x));
+
+  private static readonly MemoryCacheEntryOptions ApiKeyCacheEntryOptions = new()
+  {
+    AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration
+  };
 
   public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder routes)
   {
@@ -20,6 +37,27 @@ public static class SettingsEndpoints
         .MapGroup("/settings")
         .WithTags("Settings");
 
+    // Provider-agnostic API key routes (future-proof for multi-provider BYOK)
+    group.MapPost("/api-keys/{provider}", SaveApiKey)
+      .WithSummary("Save user's provider API key")
+      .WithDescription("Store a user's personal API key for a specific LLM provider. Requires X-User-Id header.")
+      .Produces<SaveApiKeyResponse>(StatusCodes.Status200OK)
+      .ProducesProblem(StatusCodes.Status400BadRequest)
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+    group.MapGet("/api-keys/{provider}", CheckApiKey)
+      .WithSummary("Check if user has saved provider API key")
+      .WithDescription("Verify whether the current user has stored their personal API key for a provider. Requires X-User-Id header.")
+      .Produces<ApiKeyStatusResponse>(StatusCodes.Status200OK)
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+    group.MapDelete("/api-keys/{provider}", DeleteApiKey)
+      .WithSummary("Delete user's saved provider API key")
+      .WithDescription("Remove stored API key for a provider. Requires X-User-Id header.")
+      .Produces<DeleteApiKeyResponse>(StatusCodes.Status200OK)
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+    // Backward-compatible aliases for existing extension clients
     group.MapPost("/groq-api-key", SaveGroqApiKey)
         .WithSummary("Save user's Groq API key")
         .WithDescription("Store a user's personal Groq API key. Requires X-User-Id header. When saved, the user's key will be used instead of the default, bypassing rate limits.")
@@ -64,38 +102,44 @@ public static class SettingsEndpoints
   }
 
   /// <summary>
-  /// POST /api/v1/settings/groq-api-key
-  /// Saves a user's Groq API key to cache.
+  /// POST /api/v1/settings/api-keys/{provider}
+  /// Saves a user's provider API key to DB and cache.
   /// </summary>
-  private static IResult SaveGroqApiKey(
+  private static async Task<IResult> SaveApiKey(
+    string provider,
     [FromBody] SaveApiKeyRequest request,
     HttpContext httpContext,
     IMemoryCache cache,
-    ICacheKeyBuilder cacheKeyBuilder)
+    ICacheKeyBuilder cacheKeyBuilder,
+    IUserApiKeyRepository userApiKeyRepository,
+    IUnitOfWork unitOfWork)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
+    if (!TryParseProvider(provider, out var llmProvider))
+      return Result<SaveApiKeyResponse>.ValidationError($"Unsupported provider '{provider}'.").ToHttpResult();
 
     if (string.IsNullOrWhiteSpace(request.ApiKey))
     {
       return Result<SaveApiKeyResponse>.ValidationError("ApiKey is required.").ToHttpResult();
     }
 
-    // Basic validation: Groq API keys start with "gsk_"
-    if (!request.ApiKey.StartsWith("gsk_", StringComparison.OrdinalIgnoreCase))
-    {
-      return Result<SaveApiKeyResponse>.ValidationError(
-          "Invalid Groq API key format. Keys should start with 'gsk_'.").ToHttpResult();
-    }
+    if (!IsApiKeyFormatValid(llmProvider, request.ApiKey, out var formatError))
+      return Result<SaveApiKeyResponse>.ValidationError(formatError!).ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
-    cache.Set(cacheKey, request.ApiKey, new MemoryCacheEntryOptions
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId, llmProvider);
+
+    await userApiKeyRepository.UpsertAsync(new UserApiKeyDto
     {
-      AbsoluteExpirationRelativeToNow = ApiKeyCacheDuration
-      // Size not needed when SizeLimit is disabled
-    });
+      UserId = userId,
+      Provider = llmProvider,
+      ApiKey = request.ApiKey
+    }, httpContext.RequestAborted);
+    await unitOfWork.SaveChangesAsync(httpContext.RequestAborted);
+
+    cache.Set(cacheKey, request.ApiKey, ApiKeyCacheEntryOptions);
 
     var response = new SaveApiKeyResponse(
-        Message: "Groq API key saved successfully. Your key will be used for all cover letter generation requests.",
+      Message: $"{llmProvider} API key saved successfully.",
         UserId: userId,
         ExpiresIn: $"{ApiKeyCacheDuration.TotalDays} days"
     );
@@ -104,25 +148,40 @@ public static class SettingsEndpoints
   }
 
   /// <summary>
-  /// GET /api/v1/settings/groq-api-key
-  /// Checks if a user has saved their Groq API key.
+  /// GET /api/v1/settings/api-keys/{provider}
+  /// Checks if a user has saved their provider API key.
   /// </summary>
-  private static IResult CheckGroqApiKey(
+  private static async Task<IResult> CheckApiKey(
+      string provider,
       HttpContext httpContext,
       IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+      ICacheKeyBuilder cacheKeyBuilder,
+      IUserApiKeyRepository userApiKeyRepository)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
+    if (!TryParseProvider(provider, out var llmProvider))
+      return Result<ApiKeyStatusResponse>.ValidationError($"Unsupported provider '{provider}'.").ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId, llmProvider);
     var hasKey = cache.TryGetValue<string>(cacheKey, out var apiKey);
+
+    if (!hasKey || string.IsNullOrWhiteSpace(apiKey))
+    {
+      var persisted = await userApiKeyRepository.GetAsync(userId, llmProvider, httpContext.RequestAborted);
+      if (!string.IsNullOrWhiteSpace(persisted?.ApiKey))
+      {
+        apiKey = persisted.ApiKey;
+        hasKey = true;
+        cache.Set(cacheKey, apiKey, ApiKeyCacheEntryOptions);
+      }
+    }
 
     if (!hasKey || string.IsNullOrWhiteSpace(apiKey))
     {
       var response = new ApiKeyStatusResponse(
           HasKey: false,
           MaskedKey: null,
-          Message: "No API key saved. Using default key with rate limiting.");
+          Message: $"No {llmProvider} API key saved. Using default key with rate limiting.");
       return Result<ApiKeyStatusResponse>.Success(response).ToHttpResult();
     }
 
@@ -134,31 +193,86 @@ public static class SettingsEndpoints
     var successResponse = new ApiKeyStatusResponse(
         HasKey: true,
         MaskedKey: maskedKey,
-        Message: "Your personal API key is active. No rate limits apply.");
+      Message: $"Your personal {llmProvider} API key is active.");
 
     return Result<ApiKeyStatusResponse>.Success(successResponse).ToHttpResult();
   }
 
   /// <summary>
-  /// DELETE /api/v1/settings/groq-api-key
-  /// Deletes a user's saved Groq API key.
+  /// DELETE /api/v1/settings/api-keys/{provider}
+  /// Deletes a user's saved provider API key.
   /// </summary>
-  private static IResult DeleteGroqApiKey(
+  private static async Task<IResult> DeleteApiKey(
+      string provider,
       HttpContext httpContext,
       IMemoryCache cache,
-      ICacheKeyBuilder cacheKeyBuilder)
+      ICacheKeyBuilder cacheKeyBuilder,
+      IUserApiKeyRepository userApiKeyRepository,
+      IUnitOfWork unitOfWork)
   {
     var userId = httpContext.GetRequiredUserId();  // Throws if X-User-Id header missing
+    if (!TryParseProvider(provider, out var llmProvider))
+      return Result<DeleteApiKeyResponse>.ValidationError($"Unsupported provider '{provider}'.").ToHttpResult();
 
-    var cacheKey = cacheKeyBuilder.UserApiKey(userId);
+    await userApiKeyRepository.DeleteAsync(userId, llmProvider, httpContext.RequestAborted);
+    await unitOfWork.SaveChangesAsync(httpContext.RequestAborted);
+
+    var cacheKey = cacheKeyBuilder.UserApiKey(userId, llmProvider);
     cache.Remove(cacheKey);
 
     var response = new DeleteApiKeyResponse(
-        Message: "Groq API key removed. Future requests will use the default key with rate limiting.",
+        Message: $"{llmProvider} API key removed. Future requests will use the default key.",
         UserId: userId
     );
 
     return Result<DeleteApiKeyResponse>.Success(response).ToHttpResult();
+  }
+
+  // Legacy aliases for existing clients.
+  private static Task<IResult> SaveGroqApiKey(
+    [FromBody] SaveApiKeyRequest request,
+    HttpContext httpContext,
+    IMemoryCache cache,
+    ICacheKeyBuilder cacheKeyBuilder,
+    IUserApiKeyRepository userApiKeyRepository,
+    IUnitOfWork unitOfWork)
+    => SaveApiKey(GroqProviderRoute, request, httpContext, cache, cacheKeyBuilder, userApiKeyRepository, unitOfWork);
+
+  private static Task<IResult> CheckGroqApiKey(
+      HttpContext httpContext,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder,
+      IUserApiKeyRepository userApiKeyRepository)
+      => CheckApiKey(GroqProviderRoute, httpContext, cache, cacheKeyBuilder, userApiKeyRepository);
+
+  private static Task<IResult> DeleteGroqApiKey(
+      HttpContext httpContext,
+      IMemoryCache cache,
+      ICacheKeyBuilder cacheKeyBuilder,
+      IUserApiKeyRepository userApiKeyRepository,
+      IUnitOfWork unitOfWork)
+      => DeleteApiKey(GroqProviderRoute, httpContext, cache, cacheKeyBuilder, userApiKeyRepository, unitOfWork);
+
+  private static bool TryParseProvider(string rawProvider, out LlmProvider provider)
+    => Enum.TryParse(rawProvider, ignoreCase: true, out provider);
+
+  private static bool IsApiKeyFormatValid(LlmProvider provider, string apiKey, out string? error)
+  {
+    error = null;
+
+    switch (provider)
+    {
+      case LlmProvider.Groq:
+        if (!apiKey.StartsWith("gsk_", StringComparison.OrdinalIgnoreCase))
+        {
+          error = "Invalid Groq API key format. Keys should start with 'gsk_'.";
+          return false;
+        }
+        return true;
+      default:
+        error = $"Validation rule for provider '{provider}' is not configured.";
+        return false;
+    }
   }
 
   //===========================================
@@ -180,26 +294,10 @@ public static class SettingsEndpoints
     if (string.IsNullOrWhiteSpace(request.Prompt))
       return Result<SavePromptResponse>.ValidationError("Prompt cannot be empty").ToHttpResult();
 
-    // Validate prompt type
-    var allowedTypes = new[] { "cv-customization", "cover-letter", "match-analysis", "textarea-answer" };
-    if (!allowedTypes.Contains(promptType))
-      return Result<SavePromptResponse>.ValidationError(
-          $"Invalid prompt type. Allowed: {string.Join(", ", allowedTypes)}").ToHttpResult();
+    if (!TryParsePromptType(promptType, out var promptTypeEnum))
+      return Result<SavePromptResponse>.ValidationError($"Invalid prompt type. Allowed: {AllowedPromptTypes}").ToHttpResult();
 
-    // Map kebab-case to PromptType enum
-    var promptTypeEnum = promptType switch
-    {
-      "cv-customization" => PromptType.CvCustomization,
-      "cover-letter" => PromptType.CoverLetter,
-      "match-analysis" => PromptType.MatchAnalysis,
-      "textarea-answer" => PromptType.TextareaAnswer,
-      _ => (PromptType?)null
-    };
-
-    if (promptTypeEnum == null)
-      return Result<SavePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
-
-    await customPromptService.SaveUserPromptAsync(promptTypeEnum.Value, request.Prompt, httpContext.RequestAborted);
+    await customPromptService.SaveUserPromptAsync(promptTypeEnum, request.Prompt, httpContext.RequestAborted);
 
     var response = new SavePromptResponse(
         Message: $"Custom prompt for {promptType} saved successfully",
@@ -221,19 +319,10 @@ public static class SettingsEndpoints
     if (string.IsNullOrEmpty(userId))
       return Result<CustomPromptResponse>.Unauthorized("User ID is required").ToHttpResult();
 
-    var promptTypeEnum = promptType switch
-    {
-      "cv-customization" => PromptType.CvCustomization,
-      "cover-letter" => PromptType.CoverLetter,
-      "match-analysis" => PromptType.MatchAnalysis,
-      "textarea-answer" => PromptType.TextareaAnswer,
-      _ => (PromptType?)null
-    };
+    if (!TryParsePromptType(promptType, out var promptTypeEnum))
+      return Result<CustomPromptResponse>.ValidationError($"Invalid prompt type. Allowed: {AllowedPromptTypes}").ToHttpResult();
 
-    if (promptTypeEnum == null)
-      return Result<CustomPromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
-
-    var prompt = await customPromptService.GetUserPromptAsync(promptTypeEnum.Value, httpContext.RequestAborted);
+    var prompt = await customPromptService.GetUserPromptAsync(promptTypeEnum, httpContext.RequestAborted);
 
     if (!string.IsNullOrEmpty(prompt))
     {
@@ -257,19 +346,10 @@ public static class SettingsEndpoints
     if (string.IsNullOrEmpty(userId))
       return Result<DeletePromptResponse>.Unauthorized("User ID is required").ToHttpResult();
 
-    var promptTypeEnum = promptType switch
-    {
-      "cv-customization" => PromptType.CvCustomization,
-      "cover-letter" => PromptType.CoverLetter,
-      "match-analysis" => PromptType.MatchAnalysis,
-      "textarea-answer" => PromptType.TextareaAnswer,
-      _ => (PromptType?)null
-    };
+    if (!TryParsePromptType(promptType, out var promptTypeEnum))
+      return Result<DeletePromptResponse>.ValidationError($"Invalid prompt type. Allowed: {AllowedPromptTypes}").ToHttpResult();
 
-    if (promptTypeEnum == null)
-      return Result<DeletePromptResponse>.ValidationError("Invalid prompt type").ToHttpResult();
-
-    await customPromptService.DeleteUserPromptAsync(promptTypeEnum.Value, httpContext.RequestAborted);
+    await customPromptService.DeleteUserPromptAsync(promptTypeEnum, httpContext.RequestAborted);
 
     var response = new DeletePromptResponse(
         Message: $"Custom prompt for {promptType} deleted successfully. Will use default prompt.",
@@ -279,6 +359,9 @@ public static class SettingsEndpoints
 
     return Result<DeletePromptResponse>.Success(response).ToHttpResult();
   }
+
+  private static bool TryParsePromptType(string rawPromptType, out PromptType promptType)
+    => PromptTypeMap.TryGetValue(rawPromptType, out promptType);
 }
 
 // DTOs for Groq API Key

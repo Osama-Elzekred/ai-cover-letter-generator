@@ -31,7 +31,7 @@ public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
     var response = await next();
 
     stopwatch.Stop();
-    _logger.LogInformation(
+    _logger.LogDebug(
         "{RequestName} completed in {ElapsedMs}ms",
         requestName,
         stopwatch.ElapsedMilliseconds);

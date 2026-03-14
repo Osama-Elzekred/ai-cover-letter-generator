@@ -1,5 +1,7 @@
 namespace CoverLetter.Application.Common.Interfaces;
 
+using CoverLetter.Domain.Enums;
+
 /// <summary>
 /// Provides access to the current user's context within the application.
 /// Abstracts user identification and preferences from infrastructure concerns.
@@ -23,7 +25,7 @@ public interface IUserContext
   /// Used for BYOK (Bring Your Own Key) pattern - users with saved keys bypass rate limits.
   /// </summary>
   /// <returns>User's API key if saved, null if using default</returns>
-  string? GetUserApiKey();
+  string? GetUserApiKey(LlmProvider provider = LlmProvider.Groq);
 
   /// <summary>
   /// Checks if the current request has an authenticated user.

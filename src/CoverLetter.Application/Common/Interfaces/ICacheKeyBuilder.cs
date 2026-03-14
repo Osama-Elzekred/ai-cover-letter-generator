@@ -16,7 +16,7 @@ public interface ICacheKeyBuilder
   /// <summary>
   /// Generates cache key for user's API key (BYOK pattern).
   /// </summary>
-  string UserApiKey(string userId);
+  string UserApiKey(string userId, LlmProvider provider = LlmProvider.Groq);
 
   /// <summary>
   /// Generates cache key for uploaded CV document.

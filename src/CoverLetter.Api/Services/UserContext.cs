@@ -1,4 +1,5 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Domain.Enums;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace CoverLetter.Api.Services;
@@ -38,14 +39,14 @@ public sealed class UserContext : IUserContext
     }
   }
 
-  public string? GetUserApiKey()
+  public string? GetUserApiKey(LlmProvider provider = LlmProvider.Groq)
   {
     if (string.IsNullOrWhiteSpace(UserId))
     {
       return null;
     }
 
-    var cacheKey = _cacheKeyBuilder.UserApiKey(UserId);
+    var cacheKey = _cacheKeyBuilder.UserApiKey(UserId, provider);
     return _cache.TryGetValue<string>(cacheKey, out var apiKey) ? apiKey : null;
   }
 }

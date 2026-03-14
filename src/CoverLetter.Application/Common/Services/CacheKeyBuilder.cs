@@ -16,9 +16,9 @@ public sealed partial class CacheKeyBuilder : ICacheKeyBuilder
     return $"custom_prompt_{kebabCaseType}_{userId}";
   }
 
-  public string UserApiKey(string userId)
+  public string UserApiKey(string userId, LlmProvider provider = LlmProvider.Groq)
   {
-    return $"user:{userId}:groq-api-key";
+    return $"user:{userId}:{provider.ToString().ToLowerInvariant()}-api-key";
   }
 
   public string CvKey(string cvId)

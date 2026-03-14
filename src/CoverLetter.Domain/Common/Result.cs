@@ -5,15 +5,16 @@ namespace CoverLetter.Domain.Common;
 /// </summary>
 public enum ResultType
 {
-  Success,
-  Error,
-  NotFound,
-  ValidationError,
-  Unauthorized,
-  Forbidden,
-  Conflict,
-  NotSupported,
-  InvalidInput
+    Success,
+    Error,
+    NotFound,
+    ValidationError,
+    Unauthorized,
+    Forbidden,
+    Conflict,
+    TooManyRequests,
+    NotSupported,
+    InvalidInput
 }
 
 /// <summary>
@@ -22,32 +23,32 @@ public enum ResultType
 /// </summary>
 public class Result
 {
-  public bool IsSuccess { get; }
-  public bool IsFailure => !IsSuccess;
-  public ResultType Type { get; }
-  public IReadOnlyList<string> Errors { get; }
+    public bool IsSuccess { get; }
+    public bool IsFailure => !IsSuccess;
+    public ResultType Type { get; }
+    public IReadOnlyList<string> Errors { get; }
 
-  /// <summary>
-  /// Gets the first error message, or empty string if no errors.
-  /// </summary>
-  public string Error => Errors.FirstOrDefault() ?? string.Empty;
+    /// <summary>
+    /// Gets the first error message, or empty string if no errors.
+    /// </summary>
+    public string Error => Errors.FirstOrDefault() ?? string.Empty;
 
-  protected Result(bool isSuccess, ResultType type, IEnumerable<string>? errors = null)
-  {
-    IsSuccess = isSuccess;
-    Type = type;
-    Errors = errors?.ToList().AsReadOnly() ?? [];
-  }
+    protected Result(bool isSuccess, ResultType type, IEnumerable<string>? errors = null)
+    {
+        IsSuccess = isSuccess;
+        Type = type;
+        Errors = errors?.ToList().AsReadOnly() ?? [];
+    }
 
-  public static Result Success() => new(true, ResultType.Success);
-  public static Result Failure(string error) => new(false, ResultType.Error, [error]);
-  public static Result Failure(IEnumerable<string> errors) => new(false, ResultType.Error, errors);
+    public static Result Success() => new(true, ResultType.Success);
+    public static Result Failure(string error) => new(false, ResultType.Error, [error]);
+    public static Result Failure(IEnumerable<string> errors) => new(false, ResultType.Error, errors);
 
-  public static Result<T> Success<T>(T value) => new(value, true, ResultType.Success);
-  public static Result<T> Failure<T>(string error, ResultType type = ResultType.Error)
-      => new(default!, false, type, [error]);
-  public static Result<T> Failure<T>(IEnumerable<string> errors, ResultType type = ResultType.Error)
-      => new(default!, false, type, errors);
+    public static Result<T> Success<T>(T value) => new(value, true, ResultType.Success);
+    public static Result<T> Failure<T>(string error, ResultType type = ResultType.Error)
+        => new(default!, false, type, [error]);
+    public static Result<T> Failure<T>(IEnumerable<string> errors, ResultType type = ResultType.Error)
+        => new(default!, false, type, errors);
 }
 
 /// <summary>
@@ -55,38 +56,38 @@ public class Result
 /// </summary>
 public class Result<T> : Result
 {
-  public T Value { get; }
+    public T Value { get; }
 
-  protected internal Result(T value, bool isSuccess, ResultType type, IEnumerable<string>? errors = null)
-      : base(isSuccess, type, errors)
-  {
-    Value = value;
-  }
+    protected internal Result(T value, bool isSuccess, ResultType type, IEnumerable<string>? errors = null)
+        : base(isSuccess, type, errors)
+    {
+        Value = value;
+    }
 
-  // Convenience factory methods
-  public static Result<T> Success(T value) => new(value, true, ResultType.Success);
+    // Convenience factory methods
+    public static Result<T> Success(T value) => new(value, true, ResultType.Success);
 
-  public static Result<T> Failure(string error, ResultType type = ResultType.Error)
-      => new(default!, false, type, [error]);
+    public static Result<T> Failure(string error, ResultType type = ResultType.Error)
+        => new(default!, false, type, [error]);
 
-  public static Result<T> Failure(IEnumerable<string> errors, ResultType type = ResultType.Error)
-      => new(default!, false, type, errors);
+    public static Result<T> Failure(IEnumerable<string> errors, ResultType type = ResultType.Error)
+        => new(default!, false, type, errors);
 
-  public static Result<T> NotFound(string error = "Resource not found")
-      => new(default!, false, ResultType.NotFound, [error]);
+    public static Result<T> NotFound(string error = "Resource not found")
+        => new(default!, false, ResultType.NotFound, [error]);
 
-  public static Result<T> ValidationErrors(IEnumerable<string> errors)
-      => new(default!, false, ResultType.ValidationError, errors);
+    public static Result<T> ValidationErrors(IEnumerable<string> errors)
+        => new(default!, false, ResultType.ValidationError, errors);
 
-  public static Result<T> ValidationError(string error)
-      => new(default!, false, ResultType.ValidationError, [error]);
+    public static Result<T> ValidationError(string error)
+        => new(default!, false, ResultType.ValidationError, [error]);
 
-  public static Result<T> Unauthorized(string error = "Unauthorized access")
-      => new(default!, false, ResultType.Unauthorized, [error]);
+    public static Result<T> Unauthorized(string error = "Unauthorized access")
+        => new(default!, false, ResultType.Unauthorized, [error]);
 
-  public static Result<T> Forbidden(string error = "Access forbidden")
-      => new(default!, false, ResultType.Forbidden, [error]);
+    public static Result<T> Forbidden(string error = "Access forbidden")
+        => new(default!, false, ResultType.Forbidden, [error]);
 
-  public static Result<T> Conflict(string error)
-      => new(default!, false, ResultType.Conflict, [error]);
+    public static Result<T> Conflict(string error)
+        => new(default!, false, ResultType.Conflict, [error]);
 }

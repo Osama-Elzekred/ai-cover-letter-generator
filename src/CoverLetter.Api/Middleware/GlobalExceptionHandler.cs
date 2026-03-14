@@ -1,4 +1,5 @@
 using System.Net;
+using CoverLetter.Application.Common.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -111,6 +112,16 @@ public sealed class GlobalExceptionHandler(
                 "Invalid Request",
                 $"The request is malformed or invalid: {badHttpEx.Message}"),
 
+            LlmRateLimitException => (
+                HttpStatusCode.TooManyRequests,
+                "Upstream Rate Limit",
+                "The AI provider is currently rate-limiting requests. Please retry in a few seconds or configure your own API key for higher limits."),
+
+            ApiException apiEx when apiEx.StatusCode == HttpStatusCode.TooManyRequests => (
+                HttpStatusCode.TooManyRequests,
+                "Upstream Rate Limit",
+                "The AI provider is currently rate-limiting requests. Please retry in a few seconds or configure your own API key for higher limits."),
+
             ApiException apiEx => (
                 HttpStatusCode.BadGateway,
                 "External API Error",
@@ -155,6 +166,7 @@ public sealed class GlobalExceptionHandler(
             HttpStatusCode.BadRequest => "https://tools.ietf.org/html/rfc7231#section-6.5.1",
             HttpStatusCode.Unauthorized => "https://tools.ietf.org/html/rfc7235#section-3.1",
             HttpStatusCode.NotFound => "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+            HttpStatusCode.TooManyRequests => "https://www.rfc-editor.org/rfc/rfc6585#section-4",
             HttpStatusCode.RequestTimeout => "https://tools.ietf.org/html/rfc7231#section-6.5.7",
             HttpStatusCode.InternalServerError => "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             HttpStatusCode.BadGateway => "https://tools.ietf.org/html/rfc7231#section-6.6.3",

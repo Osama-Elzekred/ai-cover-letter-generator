@@ -17,7 +17,7 @@ public sealed class LatexCompilerService(ILogger<LatexCompilerService> logger) :
     {
         var jobId = Guid.NewGuid().ToString("N");
         var workspaceDir = Path.Combine(Path.GetTempPath(), "cv-gen", jobId);
-        
+
         try
         {
             Directory.CreateDirectory(workspaceDir);
@@ -27,14 +27,14 @@ public sealed class LatexCompilerService(ILogger<LatexCompilerService> logger) :
             var outDir = Path.Combine(workspaceDir, "out");
             Directory.CreateDirectory(outDir);
 
-            logger.LogInformation("Starting LaTeX compilation for job {JobId}", jobId);
+            logger.LogDebug("Starting LaTeX compilation for job {JobId}", jobId);
 
             // workspaceDir mapping to /work in container
             // We use absolute path for mounting
             var absoluteWorkspaceDir = Path.GetFullPath(workspaceDir);
 
             // docker run flags for security and resource limits
-            var args = 
+            var args =
                 "run --rm " +
                 "--network none " +
                 "--memory=512m --cpus=1.0 --pids-limit=256 " +
@@ -85,9 +85,9 @@ public sealed class LatexCompilerService(ILogger<LatexCompilerService> logger) :
                     latexLog = await File.ReadAllTextAsync(logPath, cancellationToken);
                 }
 
-                logger.LogError("LaTeX compilation failed for job {JobId}. Exit code: {ExitCode}\nStderr: {Stderr}\nLog: {Log}", 
+                logger.LogError("LaTeX compilation failed for job {JobId}. Exit code: {ExitCode}\nStderr: {Stderr}\nLog: {Log}",
                     jobId, process.ExitCode, stderr, latexLog);
-                
+
                 throw new Exception($"LaTeX compilation failed (exit {process.ExitCode}). {stderr}");
             }
 

@@ -1,4 +1,5 @@
 using CoverLetter.Application.Common.Interfaces;
+using CoverLetter.Domain.Common;
 using Microsoft.Extensions.Logging;
 
 namespace CoverLetter.Infrastructure.LlmProviders;
@@ -19,7 +20,7 @@ public sealed class LoggingLlmService(
     ILlmService inner,
     ILogger<LoggingLlmService> logger) : ILlmService
 {
-    public async Task<LlmResponse> GenerateAsync(
+    public async Task<Result<LlmResponse>> GenerateAsync(
         string prompt,
         LlmGenerationOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -40,7 +41,7 @@ public sealed class LoggingLlmService(
 
         var response = await inner.GenerateAsync(prompt, options, cancellationToken);
 
-        if (logger.IsEnabled(LogLevel.Debug))
+        if (logger.IsEnabled(LogLevel.Debug) && response.IsSuccess)
         {
             logger.LogDebug(
                 """
@@ -50,10 +51,10 @@ public sealed class LoggingLlmService(
                 {Content}
                 ───────────────────────────────────────────────────────────
                 """,
-                response.Model,
-                response.PromptTokens,
-                response.CompletionTokens,
-                response.Content);
+                response.Value!.Model,
+                response.Value.PromptTokens,
+                response.Value.CompletionTokens,
+                response.Value.Content);
         }
 
         return response;
