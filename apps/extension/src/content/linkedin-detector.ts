@@ -835,7 +835,8 @@ function injectCoPilotWidget() {
   if (document.getElementById('ai-copilot-container')) return;
 
   // 1. Try to find the Save button (Standard or SDUI view)
-  const saveButton = document.querySelector('button[aria-label*="Save"], .jobs-save-button, button[data-control-name="save_job"]');
+  const saveButton = Array.from(document.querySelectorAll('button')).find(button => 
+                     button.innerText.includes('Save') || button.innerText.includes('Saved'));
 
   // 2. Fallback to your original container if the button isn't found
   const fallbackParent = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
