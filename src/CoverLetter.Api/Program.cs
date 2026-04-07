@@ -1,7 +1,9 @@
 using Asp.Versioning;
+using CoverLetter.Api.Configuration;
 using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Extensions;
 using CoverLetter.Api.HealthChecks;
+using CoverLetter.Api.Logging;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Api.Services;
 using CoverLetter.Application;
@@ -20,6 +22,17 @@ using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ========== Observability Configuration ==========
+// Load observability settings from appsettings.json
+var observabilityConfig = builder.Configuration.GetSection("Observability");
+var observabilitySettings = new ObservabilitySettings
+{
+    SlowRequestThresholdMs = observabilityConfig.GetValue<int>("SlowRequestThresholdMs", 100),
+    LogTimeZone = observabilityConfig.GetValue<string>("LogTimeZone") ?? "UTC",
+    LogTimeZoneOffset = observabilityConfig.GetValue<string>("LogTimeZoneOffset") ?? "+00:00"
+};
+builder.Services.AddSingleton(observabilitySettings);
+
 // ========== LLM Log-Level Switch ==========
 // Singleton that controls the minimum log level for the LLM provider namespace at runtime.
 // Starts OFF (Information) in all environments — no prompt/response logging by default.
@@ -33,9 +46,17 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Services(services)
     .MinimumLevel.Override("CoverLetter.Infrastructure.LlmProviders", llmLogLevelSwitch)
     .Enrich.FromLogContext()
+    .Enrich.With(new TimestampEnricher(observabilitySettings))
+    .Enrich.With(new FormattedLogEnricher(observabilitySettings))
     .WriteTo.GrafanaLoki(
         uri: "http://host.docker.internal:3100",  // Use host.docker.internal on Windows for Docker networking
-        labels: new[] { new LokiLabel { Key = "app", Value = "coverletter-api" } },
+        labels: new[]
+        {
+            new LokiLabel { Key = "app", Value = "coverletter-api" },
+            new LokiLabel { Key = "environment", Value = builder.Environment.EnvironmentName },
+            new LokiLabel { Key = "version", Value = "1.0.0" },
+            new LokiLabel { Key = "host", Value = Environment.MachineName }
+        },
         credentials: null
     ));
 
@@ -50,15 +71,19 @@ builder.Services.AddOpenTelemetry()
             .AddRuntimeInstrumentation()
             .AddProcessInstrumentation()
             .AddMeter("CoverLetterApi.SlowRequests")
+            .AddMeter("CoverLetterApi.RequestLatency")
             .AddOtlpExporter(options =>
             {
                 options.Endpoint = new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317");
             });
     });
 
-// Create custom meter for slow request tracking
+// Create custom meters for observability metrics
 var slowRequestMeter = new System.Diagnostics.Metrics.Meter("CoverLetterApi.SlowRequests", "1.0.0");
-var slowRequestCounter = slowRequestMeter.CreateCounter<long>("slow_requests_total", "requests", "Total requests exceeding 100ms");
+var slowRequestCounter = slowRequestMeter.CreateCounter<long>("slow_requests_total", "requests", "Total requests exceeding threshold");
+
+var latencyMeter = new System.Diagnostics.Metrics.Meter("CoverLetterApi.RequestLatency", "1.0.0");
+var requestLatencyHistogram = latencyMeter.CreateHistogram<double>("http_request_duration_ms", "ms", "HTTP request latency in milliseconds");
 
 // ========== Prometheus Metrics (using prometheus-net) ==========
 // prometheus-net.AspNetCore handles metrics collection automatically
@@ -147,11 +172,8 @@ builder.Services.AddOpenApi("v1", options =>
 var app = builder.Build();
 
 // ========== Middleware Pipeline ==========
-// Serilog request logging FIRST - logs the final response status
-app.UseSerilogRequestLogging(options =>
-{
-    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
-});
+// HTTP request logging - logs all requests with appropriate log levels
+app.UseMiddleware<HttpRequestLoggingMiddleware>();
 
 // Prometheus HTTP metrics collection middleware
 app.UseHttpMetrics();
@@ -159,18 +181,31 @@ app.UseHttpMetrics();
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
 
-// Track slow requests as custom metric (workaround for OTel histogram bucket limitations)
+// Track request latency and slow requests with configurable threshold
 app.Use(async (context, next) =>
 {
     var stopwatch = System.Diagnostics.Stopwatch.StartNew();
     await next();
     stopwatch.Stop();
 
-    if (stopwatch.ElapsedMilliseconds > 100)
+    var elapsedMs = stopwatch.ElapsedMilliseconds;
+    var route = context.Request.Path.Value ?? "unknown";
+    var statusCode = context.Response.StatusCode;
+
+    // Record latency histogram (for percentile analysis: p50, p95, p99)
+    requestLatencyHistogram.Record(elapsedMs,
+        new KeyValuePair<string, object?>("http_route", route),
+        new KeyValuePair<string, object?>("http_status", statusCode),
+        new KeyValuePair<string, object?>("http_method", context.Request.Method)
+    );
+
+    // Track slow requests (threshold from configuration)
+    if (elapsedMs > observabilitySettings.SlowRequestThresholdMs)
     {
         slowRequestCounter.Add(1,
-            new System.Collections.Generic.KeyValuePair<string, object?>("http_route", context.Request.Path.Value),
-            new System.Collections.Generic.KeyValuePair<string, object?>("http_status", context.Response.StatusCode)
+            new KeyValuePair<string, object?>("http_route", route),
+            new KeyValuePair<string, object?>("http_status", statusCode),
+            new KeyValuePair<string, object?>("threshold_ms", observabilitySettings.SlowRequestThresholdMs)
         );
     }
 });
