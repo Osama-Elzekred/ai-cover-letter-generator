@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'coverletter-monitor'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'otel-collector'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['otel-collector:8889']
+      - targets: ['otel-collector:8888']
+    metric_relabel_configs:
+      - source_labels: [exported_job]
+        target_label: job
+      # Rename http_server_request_duration_seconds to http_server_duration_milliseconds
+      - source_labels: [__name__]
+        regex: 'http_server_request_duration_seconds(.*)'
+        target_label: __name__
+        replacement: 'http_server_duration_milliseconds${1}'
+      # Rename http_client_request_duration_seconds to http_client_duration_milliseconds
+      - source_labels: [__name__]
+        regex: 'http_client_request_duration_seconds(.*)'
+        target_label: __name__
+        replacement: 'http_client_duration_milliseconds${1}'
+
+  - job_name: 'dotnet-api'
+    static_configs:
+      - targets: ['host.docker.internal:5012']
+    metrics_path: '/metrics'
+    scrape_interval: 5s

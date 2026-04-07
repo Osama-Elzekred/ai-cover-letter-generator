@@ -9,10 +9,14 @@ using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Infrastructure;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Prometheus;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Sinks.Grafana.Loki;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,9 +32,38 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .MinimumLevel.Override("CoverLetter.Infrastructure.LlmProviders", llmLogLevelSwitch)
-    .Enrich.FromLogContext());
+    .Enrich.FromLogContext()
+    .WriteTo.GrafanaLoki(
+        uri: "http://host.docker.internal:3100",  // Use host.docker.internal on Windows for Docker networking
+        labels: new[] { new LokiLabel { Key = "app", Value = "coverletter-api" } },
+        credentials: null
+    ));
 
-// ========== Global Exception Handler ==========
+// ========== OpenTelemetry Configuration ==========
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(opt =>
+    {
+        opt
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("CoverLetterApi"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddProcessInstrumentation()
+            .AddMeter("CoverLetterApi.SlowRequests")
+            .AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317");
+            });
+    });
+
+// Create custom meter for slow request tracking
+var slowRequestMeter = new System.Diagnostics.Metrics.Meter("CoverLetterApi.SlowRequests", "1.0.0");
+var slowRequestCounter = slowRequestMeter.CreateCounter<long>("slow_requests_total", "requests", "Total requests exceeding 100ms");
+
+// ========== Prometheus Metrics (using prometheus-net) ==========
+// prometheus-net.AspNetCore handles metrics collection automatically
+
+// Global exception handler converts exceptions to proper HTTP responses
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -120,8 +153,27 @@ app.UseSerilogRequestLogging(options =>
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
 });
 
+// Prometheus HTTP metrics collection middleware
+app.UseHttpMetrics();
+
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
+
+// Track slow requests as custom metric (workaround for OTel histogram bucket limitations)
+app.Use(async (context, next) =>
+{
+    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    await next();
+    stopwatch.Stop();
+
+    if (stopwatch.ElapsedMilliseconds > 100)
+    {
+        slowRequestCounter.Add(1,
+            new System.Collections.Generic.KeyValuePair<string, object?>("http_route", context.Request.Path.Value),
+            new System.Collections.Generic.KeyValuePair<string, object?>("http_status", context.Response.StatusCode)
+        );
+    }
+});
 
 // CORS must be before authentication and authorization
 app.UseCors(CorsExtensions.GetCorsPolicyName());
@@ -153,6 +205,9 @@ app.UseHttpsRedirection();
 
 // ========== Endpoints ==========
 app.MapHealthEndpoints(healthCheckOptions);
+
+// Prometheus metrics endpoint - exposes metrics in Prometheus format
+app.MapMetrics();
 
 var versionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(1, 0))
