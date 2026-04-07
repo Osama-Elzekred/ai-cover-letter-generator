@@ -28,20 +28,6 @@ services:
     profiles:
       - tools
 
-  otel-collector:
-    image: otel/opentelemetry-collector:0.95.0
-    container_name: coverletter_otel_collector
-    command: ["--config=/etc/otel-collector-config.yml"]
-    ports:
-      - "8888:8888"   # Prometheus metrics
-      - "8889:8889"   # Prometheus exporter
-      - "13133:13133" # Health check
-      - "4317:4317"   # gRPC receiver
-    volumes:
-      - ./otel-collector-config.yml:/etc/otel-collector-config.yml
-    networks:
-      - coverletter_network
-
   prometheus:
     image: prom/prometheus:latest
     container_name: coverletter_prometheus

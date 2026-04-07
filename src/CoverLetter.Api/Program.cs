@@ -17,8 +17,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,33 +59,9 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
         credentials: null
     ));
 
-// ========== OpenTelemetry Configuration ==========
-builder.Services.AddOpenTelemetry()
-    .WithMetrics(opt =>
-    {
-        opt
-            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("CoverLetterApi"))
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddRuntimeInstrumentation()
-            .AddProcessInstrumentation()
-            .AddMeter("CoverLetterApi.SlowRequests")
-            .AddMeter("CoverLetterApi.RequestLatency")
-            .AddOtlpExporter(options =>
-            {
-                options.Endpoint = new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317");
-            });
-    });
-
-// Create custom meters for observability metrics
-var slowRequestMeter = new System.Diagnostics.Metrics.Meter("CoverLetterApi.SlowRequests", "1.0.0");
-var slowRequestCounter = slowRequestMeter.CreateCounter<long>("slow_requests_total", "requests", "Total requests exceeding threshold");
-
-var latencyMeter = new System.Diagnostics.Metrics.Meter("CoverLetterApi.RequestLatency", "1.0.0");
-var requestLatencyHistogram = latencyMeter.CreateHistogram<double>("http_request_duration_ms", "ms", "HTTP request latency in milliseconds");
-
 // ========== Prometheus Metrics (using prometheus-net) ==========
-// prometheus-net.AspNetCore handles metrics collection automatically
+// prometheus-net.AspNetCore automatically collects ASP.NET Core and HTTP metrics
+// Exposed at /metrics endpoint for Prometheus to scrape
 
 // Global exception handler converts exceptions to proper HTTP responses
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -181,34 +156,8 @@ app.UseHttpMetrics();
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
 
-// Track request latency and slow requests with configurable threshold
-app.Use(async (context, next) =>
-{
-    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-    await next();
-    stopwatch.Stop();
-
-    var elapsedMs = stopwatch.ElapsedMilliseconds;
-    var route = context.Request.Path.Value ?? "unknown";
-    var statusCode = context.Response.StatusCode;
-
-    // Record latency histogram (for percentile analysis: p50, p95, p99)
-    requestLatencyHistogram.Record(elapsedMs,
-        new KeyValuePair<string, object?>("http_route", route),
-        new KeyValuePair<string, object?>("http_status", statusCode),
-        new KeyValuePair<string, object?>("http_method", context.Request.Method)
-    );
-
-    // Track slow requests (threshold from configuration)
-    if (elapsedMs > observabilitySettings.SlowRequestThresholdMs)
-    {
-        slowRequestCounter.Add(1,
-            new KeyValuePair<string, object?>("http_route", route),
-            new KeyValuePair<string, object?>("http_status", statusCode),
-            new KeyValuePair<string, object?>("threshold_ms", observabilitySettings.SlowRequestThresholdMs)
-        );
-    }
-});
+// Request latency and slow request tracking is handled via structured logs in Loki
+// (RequestPath, Elapsed, and StatusCode are enriched and queryable)
 
 // CORS must be before authentication and authorization
 app.UseCors(CorsExtensions.GetCorsPolicyName());
