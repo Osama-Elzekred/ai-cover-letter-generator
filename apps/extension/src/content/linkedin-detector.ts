@@ -782,30 +782,7 @@ let lastGeneratedLetter: any = null;
 /**
  * Extract job data from LinkedIn job posting page
  */
-function extractJobData(): JobData | null {
-  try {
-    const jobTitleElement = document.querySelector(
-      '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, h1.t-24'
-    );
-    const jobTitle = jobTitleElement?.textContent?.trim() || '';
 
-    const companyElement = document.querySelector(
-      '.job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name, .job-details-jobs-unified-top-card__primary-description a'
-    );
-    const companyName = companyElement?.textContent?.trim() || '';
-
-    const descriptionElement = document.querySelector(
-      '.jobs-description__content, .jobs-box__html-content, .jobs-description'
-    );
-    const jobDescription = descriptionElement?.textContent?.trim() || '';
-
-    if (!jobTitle || !companyName || !jobDescription) return null;
-
-    return { jobTitle, companyName, jobDescription };
-  } catch (error) {
-    return null;
-  }
-}
 
 /**
  * Retry injecting the widget if the parent element isn't ready yet
@@ -830,11 +807,41 @@ function retryInjectWidget(): void {
 /**
  * Main Injection Entry Point
  */
+/**
+ * REFRESH LOGIC: LinkedIn is a Single Page App. 
+ * This watches for URL changes (job ID changes) and re-injects the widget.
+ */
+let lastJobId = '';
+function startJobObserver() {
+  setInterval(() => {
+    const params = new URLSearchParams(window.location.search);
+    const currentJobId = params.get('currentJobId') || window.location.pathname.split('/').pop();
+
+    if (currentJobId && currentJobId !== lastJobId) {
+      lastJobId = currentJobId;
+      // Remove old widget if it exists so we can refresh the data
+      const existing = document.getElementById('ai-copilot-container');
+      if (existing) existing.remove();
+      
+      injectCoPilotWidget();
+    }
+  }, 1000); // Check every second for a job switch
+}
+
+/**
+ * Main Injection: Specifically targeting the space UNDER the Save button
+ */
 function injectCoPilotWidget() {
   if (document.getElementById('ai-copilot-container')) return;
 
-  const parent = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
-  if (!parent) {
+  // 1. Try to find the Save button (Standard or SDUI view)
+  const saveButton = Array.from(document.querySelectorAll('button')).find(button => 
+                     button.innerText.includes('Save') || button.innerText.includes('Saved'));
+
+  // 2. Fallback to your original container if the button isn't found
+  const fallbackParent = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
+
+  if (!saveButton && !fallbackParent) {
     retryInjectWidget();
     return;
   }
@@ -843,17 +850,51 @@ function injectCoPilotWidget() {
 
   const container = document.createElement('div');
   container.id = 'ai-copilot-container';
-  container.className = 'ai-copilot-wrapper' + (isCollapsed ? ' collapsed' : '');
+  container.className = 'ai-copilot-wrapper' + (typeof isCollapsed !== 'undefined' && isCollapsed ? ' collapsed' : '');
   
-  // Inject Styles
-  injectStyles();
+  // Ensure it sits on its own line under the buttons
+  container.style.marginTop = '50px';
+  container.style.display = 'block';
+  container.style.width = '100%';
+  container.style.fontSize = '12px';
 
-  renderWidget(container);
-  parent.appendChild(container);
+  if (typeof injectStyles === 'function') injectStyles();
+  if (typeof renderWidget === 'function') renderWidget(container);
   
-  console.log('[AI Co-Pilot] Widget Injected');
+  if (saveButton) {
+      const jobDetailsBlock = saveButton.closest('div')?.parentElement?.parentElement;
+      jobDetailsBlock?.insertAdjacentElement('afterend', container);
+  } else {
+    fallbackParent?.appendChild(container);
+  }
+  
+  console.log('[AI Co-Pilot] Widget Injected under Save button');
 }
 
+/**
+ * Extraction Logic: Works for both layout types
+ */
+function extractJobData() {
+  try {
+    // Target the main workspace/details area to avoid grabbing list data
+    const scope = document.querySelector('main#workspace, .jobs-search__job-details--container, [role="main"]');
+    if (!scope) return null;
+
+    const jobTitle = scope.querySelector('h1, h2, .job-details-jobs-unified-top-card__job-title')?.textContent?.trim() || '';
+    const companyName = scope.querySelector('a[href*="/company/"], .job-details-jobs-unified-top-card__company-name')?.textContent?.trim() || '';
+    const jobDescription = scope.querySelector('.jobs-description__content, [data-testid="expandable-text-box"]')?.textContent?.trim() || '';
+
+    if (!jobTitle || !jobDescription) return null;
+
+    return { jobTitle, companyName, jobDescription };
+  } catch (error) {
+    return null;
+  }
+}
+
+// Initialize
+startJobObserver();
+injectCoPilotWidget();
 function renderWidget(container: HTMLElement) {
   const jobData = extractJobData();
   const summaryText = jobData ? `Tailored for ${jobData.jobTitle} at ${jobData.companyName}` : "AI-powered job assistance";
