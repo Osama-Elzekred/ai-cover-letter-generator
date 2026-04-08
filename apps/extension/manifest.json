@@ -28,13 +28,16 @@
   "content_scripts": [
     {
       "matches": [
+        "https://www.linkedin.com/*",
         "https://www.linkedin.com/jobs/*",
         "https://www.linkedin.com/jobs/view/*",
         "https://www.linkedin.com/jobs/search/*",
         "https://www.linkedin.com/jobs/collections/*"
       ],
       "js": ["content/linkedin-detector.js"],
-      "run_at": "document_idle"
+      "run_at": "document_end",
+      "all_frames": true,
+      "match_about_blank": true
     }
   ],
   "icons": {
