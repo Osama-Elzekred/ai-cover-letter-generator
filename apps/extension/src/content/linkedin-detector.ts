@@ -2,6 +2,8 @@
 // LinkedIn AI Co-Pilot - Premium Integrated UI
 // ============================================
 
+// Early initialization check
+
 // ============================================
 // Textarea Detection & Icon Injection (Inlined)
 // ============================================
@@ -63,7 +65,7 @@ function initializeTextareaDetection(): void {
     attributes: false,
   });
 
-  console.log('[Textarea Detection] Initialized');
+
 }
 
 /**
@@ -177,9 +179,8 @@ function injectIconForTextarea(
       iconContainer.style.opacity = '0.7';
     });
 
-    console.log(`[Textarea Detection] Icon injected for field: ${fieldLabel}`);
+
   } catch (error) {
-    console.error('[Textarea Detection] Error injecting icon:', error);
   }
 }
 
@@ -262,7 +263,7 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
     button.innerHTML = '⏳';
     button.style.opacity = '1';
 
-    console.log('[Textarea Detection] Generating answer for:', metadata.fieldLabel);
+
 
     // Call background to generate answer using the field label as the question
     const response = await chrome.runtime.sendMessage({
@@ -274,10 +275,9 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
       },
     });
 
-    console.log('[Textarea Detection] Response received:', response);
+
 
     if (!response) {
-      console.error('[Textarea Detection] No response from background');
       throw new Error('No response from background');
     }
 
@@ -287,10 +287,9 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
     // Format 3: string (direct answer text)
     let answer = '';
     
-    console.log('[Textarea Detection] Response type:', typeof response, 'Keys:', Object.keys(response || {}));
+
     
     if (response.error) {
-      console.error('[Textarea Detection] API error:', response.error);
       throw new Error(response.error);
     }
     
@@ -310,7 +309,6 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
     }
     
     if (!answer || answer.trim() === '') {
-      console.error('[Textarea Detection] No answer extracted from response:', response);
       throw new Error('Invalid response format - no answer found in response');
     }
 
@@ -318,7 +316,7 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
     const inputElement = metadata.element as HTMLInputElement | HTMLTextAreaElement;
     inputElement.value = answer;
 
-    console.log('[Textarea Detection] Injected answer:', answer);
+
 
     // Trigger change events
     inputElement.dispatchEvent(new Event('input', { bubbles: true }));
@@ -334,9 +332,8 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
       button.style.opacity = '0.7';
     }, 2000);
 
-    console.log('[Textarea Detection] Answer injected successfully');
+
   } catch (error) {
-    console.error('[Textarea Detection] Error generating answer:', error);
     
     // Show error state
     button.innerHTML = '✗';
@@ -372,7 +369,7 @@ function injectAnswerIntoTextarea(answer: string): void {
     focusedElement.dispatchEvent(new Event('input', { bubbles: true }));
     focusedElement.dispatchEvent(new Event('change', { bubbles: true }));
     
-    console.log('[Textarea Detection] Answer injected into field');
+
   }
 }
 
@@ -785,54 +782,280 @@ let lastGeneratedLetter: any = null;
 
 
 /**
- * Retry injecting the widget if the parent element isn't ready yet
+ * Watchdog-based widget lifecycle management for LinkedIn SPA navigation.
  */
-let retryCount = 0;
-const maxRetries = 15; // ~7.5 seconds with backoff
+const jobWatchdogIntervalMs = 1000;
+let jobWatchdogTimer: number | undefined;
 
-function retryInjectWidget(): void {
-  if (retryCount >= maxRetries) {
-    console.warn('[AI Co-Pilot] Failed to find parent element after retries');
-    return;
-  }
+// Use sessionStorage to persist reload state across page reloads
+function getLastReloadedUrl(): string {
+  return sessionStorage.getItem('ai-extension-reloaded-url') || '';
+}
 
-  const delay = Math.min(500 * (retryCount + 1), 2000);
-  retryCount++;
+function setLastReloadedUrl(url: string): void {
+  sessionStorage.setItem('ai-extension-reloaded-url', url);
+}
 
-  setTimeout(() => {
-    injectCoPilotWidget();
-  }, delay);
+// Track current URL to detect SPA navigation
+let lastWatchedUrl = window.location.href;
+let lastWatchedUrlBeforeChange = window.location.href;
+
+// Track currently displayed job (extracts from DOM if URL doesn't have it)
+let currentDisplayedJobId = '';
+
+// Track current job page subsection to detect when subsection changes
+let currentJobSubsection = '';
+
+// LinkedIn job page patterns to watch
+const JOB_PAGE_PATTERNS = [
+  /\/jobs\/view\//,           // /jobs/view/[jobid]
+  /\/jobs\/search/,           // /jobs/search/...
+  /\/jobs\/collections\//,    // /jobs/collections/* (all collections: recommended, similar-jobs, etc)
+];
+
+/**
+ * Extract the job page subsection from URL
+ * Returns: 'view', 'search', 'collections', or empty string
+ */
+function getJobSubsection(url: string): string {
+  if (/\/jobs\/view\//.test(url)) return 'view';
+  if (/\/jobs\/search/.test(url)) return 'search';
+  if (/\/jobs\/collections\//.test(url)) return 'collections';
+  return '';
+}
+
+function isJobPageUrl(url: string): boolean {
+  return JOB_PAGE_PATTERNS.some(pattern => pattern.test(url));
+}
+
+function isLinkedInJobsPage(): boolean {
+  return window.location.href.includes('linkedin.com/jobs');
+}
+
+function hasJobDetailsContext(): boolean {
+  return Boolean(
+    document.querySelector(
+      'main#workspace, .jobs-search__job-details--container, .job-details-jobs-unified-top-card__container--two-pane'
+    )
+  );
+}
+
+function getCurrentJobId(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get('currentJobId');
+  if (fromQuery) return fromQuery;
+
+  const viewMatch = window.location.pathname.match(/\/view\/(\d+)/);
+  return viewMatch?.[1] || null;
 }
 
 /**
- * Main Injection Entry Point
+ * Extract job ID from the DOM itself
+ * Searches for data attributes, aria-labels, and job component elements
  */
+function extractJobIdFromDOM(): string | null {
+  // Look for job data in various LinkedIn DOM elements
+  const jobElements = document.querySelectorAll(
+    '[data-job-id], [data-job-id], .job-details-jobs-unified-top-card__content-title, .job-details-jobs-unified-top-card__container--two-pane'
+  );
+
+  for (const element of Array.from(jobElements)) {
+    const jobId = element.getAttribute('data-job-id');
+    if (jobId) return jobId;
+  }
+
+  // Try to extract from job view link if present
+  const jobViewLink = document.querySelector('a[href*="/jobs/view/"]');
+  if (jobViewLink) {
+    const href = jobViewLink.getAttribute('href');
+    const match = href?.match(/\/jobs\/view\/(\d+)/);
+    if (match) return match[1];
+  }
+
+  // Try to extract from the URL query params or pathname (iframe context)
+  const jobIdFromUrl = getCurrentJobId();
+  if (jobIdFromUrl) return jobIdFromUrl;
+
+  return null;
+}
+
 /**
- * REFRESH LOGIC: LinkedIn is a Single Page App. 
- * This watches for URL changes (job ID changes) and re-injects the widget.
+ * Detect navigation to job pages and reload once per unique URL
+ * Watches URLs matching:
+ * - /jobs/view/*
+ * - /jobs/search/*
+ * - /jobs/collections/recommended/*
+ * 
+ * BUT: Don't reload if:
+ * 1. Both old and new URLs are job page URLs (navigating within job pages)
+ * 2. Widget is already present on page (already initialized)
+ */
+function checkAndReloadForJobView(): void {
+  const currentUrl = window.location.href;
+  const lastReloadedUrl = getLastReloadedUrl();
+
+  const isCurrentJobPage = isJobPageUrl(currentUrl);
+  const isLastJobPage = isJobPageUrl(lastWatchedUrl);
+  const newSubsection = getJobSubsection(currentUrl);
+  const widgetExists = document.getElementById('ai-copilot-container') !== null;
+
+  // Check if URL changed
+  if (currentUrl === lastWatchedUrl) {
+    return;
+  }
+
+  // If navigating FROM pattern page TO non-pattern job page, clear the reload cache
+  if (isLastJobPage && !isCurrentJobPage && isLinkedInJobsPage()) {
+    setLastReloadedUrl('');
+    lastWatchedUrlBeforeChange = lastWatchedUrl;
+    lastWatchedUrl = currentUrl;
+    return;
+  }
+
+  // Check if we're on a job page
+  if (!isCurrentJobPage) {
+    return;
+  }
+
+  lastWatchedUrlBeforeChange = lastWatchedUrl;
+  lastWatchedUrl = currentUrl;
+
+  // ===== BRUTE FORCE: ALWAYS RELOAD FROM /jobs/view/* TO ANYWHERE ELSE =====
+  const lastUrlWasView = lastWatchedUrlBeforeChange.includes('/jobs/view/');
+  const isNowDifferentJobPage = isCurrentJobPage && newSubsection !== currentJobSubsection;
+
+  if (lastUrlWasView && isNowDifferentJobPage) {
+    // FORCE RELOAD: Coming FROM view page to different job subsection
+    setLastReloadedUrl(currentUrl);
+    currentJobSubsection = newSubsection;
+    window.location.reload();
+    return;
+  }
+
+  // CONDITION 1: If both old and new URLs are job pages (non-view transitions)
+  let shouldReloadFromViewChange = false;
+  if (isLastJobPage && isCurrentJobPage) {
+    // Only allow reload if navigating FROM view TO another subsection
+    // Don't reload when navigating TO view from other subsections
+    if (currentJobSubsection === 'view' && newSubsection !== 'view') {
+      // Navigating FROM view to another subsection - allow reload
+      shouldReloadFromViewChange = true;
+      currentJobSubsection = newSubsection;
+    } else {
+      // Same subsection or navigating TO view - don't reload
+      return;
+    }
+  } else {
+    // Update subsection tracker when navigating TO a job page from non-job
+    currentJobSubsection = newSubsection;
+  }
+
+  // Skip widget check if we're reloading from view page change
+  if (!shouldReloadFromViewChange) {
+    // CONDITION 2: If widget already exists, don't reload (already initialized)
+    const widgetExists = document.getElementById('ai-copilot-container') !== null;
+    if (widgetExists) {
+      return;
+    }
+
+    // Check if we've already reloaded for this URL
+    if (currentUrl === lastReloadedUrl) {
+      return;
+    }
+  }
+
+  // Reload for this new job page URL
+  setLastReloadedUrl(currentUrl);
+  window.location.reload();
+}
+
+function removeCoPilotWidget(): void {
+  const existing = document.getElementById('ai-copilot-container');
+  if (existing) existing.remove();
+}
+
+/**
+ * REFRESH LOGIC: LinkedIn is a Single Page App.
+ * Watchdog keeps widget state in sync as route and DOM change.
  */
 let lastJobId = '';
-function startJobObserver() {
-  setInterval(() => {
-    const params = new URLSearchParams(window.location.search);
-    const currentJobId = params.get('currentJobId') || window.location.pathname.split('/').pop();
+function reconcileCoPilotWidget(): void {
+  // First, check if we need to reload for job page URLs
+  checkAndReloadForJobView();
 
-    if (currentJobId && currentJobId !== lastJobId) {
-      lastJobId = currentJobId;
-      // Remove old widget if it exists so we can refresh the data
-      const existing = document.getElementById('ai-copilot-container');
-      if (existing) existing.remove();
-      
-      injectCoPilotWidget();
-    }
-  }, 1000); // Check every second for a job switch
+  if (!isLinkedInJobsPage() || !hasJobDetailsContext()) {
+    lastJobId = '';
+    currentJobSubsection = ''; // Reset subsection when leaving jobs
+    setLastReloadedUrl(''); // Clear reload cache when leaving jobs section
+    removeCoPilotWidget();
+    return;
+  }
+
+  const currentJobId = getCurrentJobId();
+  if (!currentJobId) {
+    lastJobId = '';
+    removeCoPilotWidget();
+    return;
+  }
+
+  if (currentJobId !== lastJobId) {
+    lastJobId = currentJobId;
+    removeCoPilotWidget();
+  }
+
+  injectCoPilotWidget();
+}
+
+function startJobWatchdog(): void {
+  if (typeof jobWatchdogTimer !== 'undefined') return;
+  jobWatchdogTimer = window.setInterval(() => {
+    checkAndReloadForJobView();
+    reconcileCoPilotWidget();
+  }, jobWatchdogIntervalMs);
+}
+
+/**
+ * Monitor for SPA navigation by detecting History API changes
+ * This allows us to react immediately when the URL changes within the SPA
+ */
+function monitorUrlChanges(): void {
+  // Patch history.pushState to detect navigation
+  const originalPushState = window.history.pushState;
+  window.history.pushState = function(data: any, title: string, url?: string | URL | null) {
+    const result = originalPushState.call(this, data, title, url);
+    // Delay slightly to let the URL settle
+    setTimeout(() => {
+      lastWatchedUrl = window.location.href;
+      checkAndReloadForJobView();
+    }, 100);
+    return result;
+  };
+
+  // Patch history.replaceState to detect navigation
+  const originalReplaceState = window.history.replaceState;
+  window.history.replaceState = function(data: any, title: string, url?: string | URL | null) {
+    const result = originalReplaceState.call(this, data, title, url);
+    // Delay slightly to let the URL settle
+    setTimeout(() => {
+      lastWatchedUrl = window.location.href;
+      checkAndReloadForJobView();
+    }, 100);
+    return result;
+  };
+
+  // Also listen for popstate (back/forward navigation)
+  window.addEventListener('popstate', () => {
+    lastWatchedUrl = window.location.href;
+    setTimeout(() => checkAndReloadForJobView(), 100);
+  });
 }
 
 /**
  * Main Injection: Specifically targeting the space UNDER the Save button
  */
-function injectCoPilotWidget() {
-  if (document.getElementById('ai-copilot-container')) return;
+function injectCoPilotWidget(): boolean {
+  if (!isLinkedInJobsPage() || !hasJobDetailsContext()) return false;
+  if (document.getElementById('ai-copilot-container')) return true;
 
   // 1. Try to find the Save button (Standard or SDUI view)
   const saveButton = Array.from(document.querySelectorAll('button')).find(button => 
@@ -841,12 +1064,7 @@ function injectCoPilotWidget() {
   // 2. Fallback to your original container if the button isn't found
   const fallbackParent = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
 
-  if (!saveButton && !fallbackParent) {
-    retryInjectWidget();
-    return;
-  }
-
-  retryCount = 0;
+  if (!saveButton && !fallbackParent) return false;
 
   const container = document.createElement('div');
   container.id = 'ai-copilot-container';
@@ -860,15 +1078,24 @@ function injectCoPilotWidget() {
 
   if (typeof injectStyles === 'function') injectStyles();
   if (typeof renderWidget === 'function') renderWidget(container);
-  
+
+  let isMounted = false;
   if (saveButton) {
-      const jobDetailsBlock = saveButton.closest('div')?.parentElement?.parentElement;
-      jobDetailsBlock?.insertAdjacentElement('afterend', container);
-  } else {
-    fallbackParent?.appendChild(container);
+    const jobDetailsBlock = saveButton.closest('div')?.parentElement?.parentElement;
+    if (jobDetailsBlock) {
+      jobDetailsBlock.insertAdjacentElement('afterend', container);
+      isMounted = true;
+    }
   }
+
+  if (!isMounted && fallbackParent) {
+    fallbackParent?.appendChild(container);
+    isMounted = true;
+  }
+
+  if (!isMounted) return false;
   
-  console.log('[AI Co-Pilot] Widget Injected under Save button');
+  return true;
 }
 
 /**
@@ -893,8 +1120,12 @@ function extractJobData() {
 }
 
 // Initialize
-startJobObserver();
-injectCoPilotWidget();
+// Check for job view reload FIRST, before other initialization
+checkAndReloadForJobView();
+// Monitor URL changes within the SPA
+monitorUrlChanges();
+startJobWatchdog();
+reconcileCoPilotWidget();
 function renderWidget(container: HTMLElement) {
   const jobData = extractJobData();
   const summaryText = jobData ? `Tailored for ${jobData.jobTitle} at ${jobData.companyName}` : "AI-powered job assistance";
@@ -1774,8 +2005,7 @@ async function handleViewPrompt() {
     });
     
   } catch (err) {
-    alert('Error loading prompt templates. Please try again.');
-    console.error(err);
+    alert('Error loading prompt templates. Please try again');
   }
 }
 
@@ -2209,14 +2439,12 @@ let mutationTimeout: ReturnType<typeof setTimeout> | undefined;
 const observer = new MutationObserver(() => {
   clearTimeout(mutationTimeout);
   mutationTimeout = setTimeout(() => {
-    if (window.location.href.includes('linkedin.com/jobs')) {
-      injectCoPilotWidget();
-    }
+    reconcileCoPilotWidget();
   }, 1000); // Debounce by 1 second to prevent excessive DOM traversal
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
-if (window.location.href.includes('linkedin.com/jobs')) injectCoPilotWidget();
+reconcileCoPilotWidget();
 
 // Initialize textarea detection for all LinkedIn pages
 // Start detecting textareas on page load and monitor for dynamic changes
