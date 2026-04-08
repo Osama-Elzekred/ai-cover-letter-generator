@@ -1,0 +1,153 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "description": "Total successful cover letter generations in the last 5 minutes. Shows the primary throughput metric of the system - how many cover letters are being successfully generated.",
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "text": {}, "textMode": "auto"},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "sum(count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | StatusCode==200 [5m]))", "refId": "A"}],
+      "title": "Cover Letters Generated (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "description": "Total failed cover letter generation attempts in the last 5 minutes. Indicates problems such as validation errors, rate limiting, conflicts, or server errors during generation. Monitor for sudden spikes.",
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "text": {}, "textMode": "auto"},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "sum(count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | (StatusCode!=200 and StatusCode!=201) [5m]))", "refId": "A"}],
+      "title": "Generation Failures (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "description": "Total successful CV processing operations in the last 5 minutes, including parsing, customization, and LaTeX compilation. Shows the overall health of the CV pipeline.",
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "text": {}, "textMode": "auto"},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "sum(count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/(parse|customize|compile).*\" | (StatusCode==200 or StatusCode==201) [5m]))", "refId": "A"}],
+      "title": "CV Operations Success (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "Requests/min", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "bars", "fillOpacity": 80, "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "showValues": false, "spanNulls": false, "stacking": {"group": "A", "mode": "normal"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 4,
+      "description": "Per-minute trend of cover letter generation operations showing success vs failure counts. Use this to identify patterns, spikes, or degradation in generation performance over time.",
+      "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"hideZeros": false, "mode": "multi"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | (StatusCode==200 or StatusCode==201) [1m])", "legendFormat": "Successful Generations", "refId": "A"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | (StatusCode!=200 and StatusCode!=201) [1m])", "legendFormat": "Failed Generations", "refId": "B"}],
+      "title": "Generation Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "Latency (ms)", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 10, "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "showValues": false, "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 3000}, {"color": "red", "value": 5000}]}, "unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 5,
+      "description": "Generation endpoint response time trend (successful requests only). Shows average and maximum latency per minute. Yellow threshold at 3s, red at 5s. Helps identify performance degradation and bottlenecks.",
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "avg(avg_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | (StatusCode==200 or StatusCode==201) | unwrap Elapsed [1m]))", "legendFormat": "Average Response Time", "refId": "A"}, {"expr": "max(max_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | (StatusCode==200 or StatusCode==201) | unwrap Elapsed [1m]))", "legendFormat": "Peak Response Time", "refId": "B"}],
+      "title": "Generation Latency (Success Only)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "Operations/min", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "bars", "fillOpacity": 80, "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "showValues": false, "spanNulls": false, "stacking": {"group": "A", "mode": "normal"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "id": 6,
+      "description": "Per-minute trend of CV processing operations: Parse (upload & extract), Customize (tailor content), and Compile (convert to PDF). Shows throughput and identifies which operations are most used.",
+      "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"hideZeros": false, "mode": "multi"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/parse.*\" | (StatusCode==200 or StatusCode==201) [1m])", "legendFormat": "Parse CV", "refId": "A"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/customize.*\" | (StatusCode==200 or StatusCode==201) [1m])", "legendFormat": "Customize CV", "refId": "B"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/compile.*\" | (StatusCode==200 or StatusCode==201) [1m])", "legendFormat": "Compile to PDF", "refId": "C"}],
+      "title": "CV Operations Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "Errors/min", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 20, "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "showValues": false, "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 7,
+      "description": "Per-minute trend of specific error types occurring during generation: 500 Internal Errors (server issues), 429 Rate Limited (quota exceeded), 409 Conflict (data mismatch), 400 Bad Request (invalid input). Helps diagnose error patterns.",
+      "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | StatusCode==500 [1m])", "legendFormat": "500 Internal Errors", "refId": "A"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | StatusCode==429 [1m])", "legendFormat": "429 Rate Limited", "refId": "B"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | StatusCode==409 [1m])", "legendFormat": "409 Conflict", "refId": "C"}, {"expr": "count_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cover-letters/generate.*\" | StatusCode==400 [1m])", "legendFormat": "400 Bad Request", "refId": "D"}],
+      "title": "Error Types Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "Avg Latency (ms)", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 10, "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "showValues": false, "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 2000}, {"color": "red", "value": 5000}]}, "unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "id": 8,
+      "description": "Average latency of each CV operation type per minute. Parse typically slower due to OCR; Customize medium; Compile LaTeX generation. Yellow ≥2s, red ≥5s thresholds. Monitor for performance regressions.",
+      "options": {"legend": {"calcs": ["mean"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "avg(avg_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/parse.*\" | unwrap Elapsed [1m]))", "legendFormat": "Parse CV (Avg)", "refId": "A"}, {"expr": "avg(avg_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/customize.*\" | unwrap Elapsed [1m]))", "legendFormat": "Customize CV (Avg)", "refId": "B"}, {"expr": "avg(avg_over_time({app=\"coverletter-api\"} | json | RequestPath=~\"/api/v1/cv/compile.*\" | unwrap Elapsed [1m]))", "legendFormat": "Compile to PDF (Avg)", "refId": "C"}],
+      "title": "CV Suite Latency Profile",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "id": 9,
+      "description": "Distribution of API requests by HTTP method over the last hour. Shows the balance between GET (reads) and POST (writes/LLM calls). Most traffic should be POST for cover letter generation and CV operations.",
+      "options": {"displayMode": "gradient", "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true}, "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "topk(10, sum(count_over_time({app=\"coverletter-api\"} | json | RequestMethod!=\"\" [1h])) by (RequestMethod))", "legendFormat": "{{RequestMethod}}", "refId": "A"}],
+      "title": "Request Volume by HTTP Method (1h)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 36},
+      "id": 10,
+      "description": "Top 20 failing endpoint-status combinations over the last 2 hours. Identifies which API routes and error codes are most problematic. Click on rows to drill down and investigate specific failure patterns.",
+      "options": {"footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false}, "showHeader": true, "sortBy": []},
+      "pluginVersion": "12.4.2",
+      "targets": [{"expr": "topk(20, sum(count_over_time({app=\"coverletter-api\"} | json | (StatusCode!=200 and StatusCode!=201) [2h])) by (RequestPath, StatusCode))", "format": "table", "instant": true, "legendFormat": "{{RequestPath}} - HTTP {{StatusCode}}", "refId": "A"}],
+      "title": "Top Errors (2h) - Path x Status",
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {}, "renameByName": {}}}],
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": ["business-kpis", "production", "loki", "priority:high"],
+  "templating": {"list": []},
+  "time": {"from": "now-2h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Business KPIs & System Health",
+  "uid": "",
+  "version": 3,
+  "weekStart": ""
+}

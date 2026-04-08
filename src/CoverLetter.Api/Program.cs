@@ -16,7 +16,6 @@ using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
-using Serilog.Formatting.Json;
 using Serilog.Sinks.Grafana.Loki;
 
 
@@ -50,7 +49,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.With(new FormattedLogEnricher(observabilitySettings))
     .WriteTo.GrafanaLoki(
         uri: "http://host.docker.internal:3100",  // Use host.docker.internal on Windows for Docker networking
-        textFormatter: new JsonFormatter(),  // Format logs as JSON so Loki can parse fields with | json filter
         labels: new[]
         {
             new LokiLabel { Key = "app", Value = "coverletter-api" },
