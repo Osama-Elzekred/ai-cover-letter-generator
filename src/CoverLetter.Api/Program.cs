@@ -9,9 +9,11 @@ using CoverLetter.Api.Services;
 using CoverLetter.Application;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Infrastructure;
+using CoverLetter.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Prometheus;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Core;
@@ -228,4 +230,36 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// ========== Database Migrations ==========
+await ApplyMigrations(app);
+
 app.Run();
+
+// ========== Helper Functions ==========
+static async Task ApplyMigrations(WebApplication app)
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // await dbContext.Database.EnsureCreatedAsync();
+
+        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+        if (pendingMigrations.Any())
+        {
+            app.Logger.LogInformation("Applying {count} pending migrations...", pendingMigrations.Count());
+            await dbContext.Database.MigrateAsync();
+            app.Logger.LogInformation("Migrations applied successfully.");
+        }
+        else
+        {
+            app.Logger.LogInformation("No pending migrations found.");
+        }
+
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while applying migrations");
+    }
+}
