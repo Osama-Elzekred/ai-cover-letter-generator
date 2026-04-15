@@ -6,7 +6,7 @@ ingester:
   wal:
     enabled: true
     checkpoint_duration: 5m
-    dir: /wal
+    dir: /loki/wal
   lifecycler:
     ring:
       kvstore:
@@ -34,6 +34,10 @@ storage_config:
     cache_location: /loki/boltdb-shipper-cache
   filesystem:
     directory: /loki/chunks
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
 
 server:
   http_listen_port: 3100

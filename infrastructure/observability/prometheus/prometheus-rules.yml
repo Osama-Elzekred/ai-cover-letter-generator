@@ -4,7 +4,7 @@ groups:
     rules:
       # ========== Request-Level Alerts ==========
       - alert: HighErrorRate
-        expr: (increase(http_requests_received_total{status=~"5.."}[5m]) / increase(http_requests_received_total[5m])) > 0.05
+        expr: (sum(increase(http_requests_received_total{status=~"5.."}[5m])) / clamp_min(sum(increase(http_requests_received_total[5m])), 1)) > 0.05
         for: 5m
         annotations:
           summary: "High error rate detected"
@@ -12,7 +12,7 @@ groups:
           severity: "critical"
 
       - alert: HighP95Latency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 5
         for: 5m
         annotations:
           summary: "High request latency detected"
@@ -20,7 +20,7 @@ groups:
           severity: "warning"
 
       - alert: SlowEndpoint
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) by (route) > 10
+        expr: histogram_quantile(0.95, sum by (route, le) (rate(http_request_duration_seconds_bucket[5m]))) > 10
         for: 5m
         annotations:
           summary: "Slow endpoint detected"
@@ -29,7 +29,7 @@ groups:
 
       # ========== Resource Alerts ==========
       - alert: HighCPUUsage
-        expr: process_cpu_seconds_total > 80
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
         for: 3m
         annotations:
           summary: "High CPU usage"
@@ -76,7 +76,7 @@ groups:
     rules:
       # ========== Business KPIs ==========
       - alert: CoverLetterGenerationFailures
-        expr: count_over_time({app="coverletter-api"} | json | RequestPath="/api/v1/cover-letters" | StatusCode!="200" [5m]) > 10
+        expr: sum(increase(http_requests_received_total{route=~".*cover-letters.*",status!~"2.."}[5m])) > 10
         for: 5m
         annotations:
           summary: "Cover letter generation failures spike"
@@ -84,7 +84,7 @@ groups:
           severity: "critical"
 
       - alert: LowCoverLetterSuccessRate
-        expr: (count_over_time({app="coverletter-api"} | json | RequestPath="/api/v1/cover-letters" | StatusCode="200" [5m]) / count_over_time({app="coverletter-api"} | json | RequestPath="/api/v1/cover-letters" [5m])) < 0.9
+        expr: (sum(increase(http_requests_received_total{route=~".*cover-letters.*",status=~"2.."}[5m])) / clamp_min(sum(increase(http_requests_received_total{route=~".*cover-letters.*"}[5m])), 1)) < 0.9
         for: 10m
         annotations:
           summary: "Low cover letter success rate"
@@ -92,31 +92,31 @@ groups:
           severity: "warning"
 
       - alert: GroqAPIErrors
-        expr: count_over_time({app="coverletter-api"} | json | level="error" | Message=~".*groq.*|.*llm.*" [5m]) > 5
+        expr: sum(increase(http_requests_received_total{route=~".*cover-letters.*",status=~"5.."}[5m])) > 5
         for: 5m
         annotations:
-          summary: "Groq/LLM API errors detected"
-          description: "{{ $value }} Groq API errors in last 5 minutes"
+          summary: "Cover letter backend 5xx errors detected"
+          description: "{{ $value }} server errors for cover letter routes in last 5 minutes"
           severity: "critical"
 
       - alert: HighCoverLetterLatency
-        expr: avg(count_over_time({app="coverletter-api"} | json | RequestPath="/api/v1/cover-letters" | unwrap Elapsed [1m])) > 5000
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{route=~".*cover-letters.*"}[5m]))) > 5
         for: 5m
         annotations:
           summary: "High cover letter generation latency"
-          description: "Average latency is {{ $value | humanize }}ms (threshold: 5000ms)"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 5s)"
           severity: "warning"
 
       - alert: LaTeXCompilationFailures
-        expr: count_over_time({app="coverletter-api"} | json | level="error" | Message=~".*latex.*|.*pdf.*" [5m]) > 3
+        expr: sum(increase(http_requests_received_total{route=~".*cv/compile.*",status!~"2.."}[5m])) > 3
         for: 5m
         annotations:
           summary: "LaTeX compilation failures detected"
-          description: "{{ $value }} LaTeX errors in last 5 minutes"
+          description: "{{ $value }} failed compile requests in last 5 minutes"
           severity: "critical"
 
       - alert: CVParsingFailures
-        expr: count_over_time({app="coverletter-api"} | json | RequestPath=~"/api/v1/cv.*" | StatusCode!="200" [5m]) > 5
+        expr: sum(increase(http_requests_received_total{route=~".*cv/(parse|customize|compile).*",status!~"2.."}[5m])) > 5
         for: 5m
         annotations:
           summary: "CV parsing/upload failures"
@@ -124,11 +124,11 @@ groups:
           severity: "warning"
 
       - alert: NoActiveUsers
-        expr: count(count_over_time({app="coverletter-api"} | json | UserId!="" | RequestPath=~"/api/v1/(cover-letters|cv).*" [5m]) by (UserId)) == 0
+        expr: sum(increase(http_requests_received_total{route=~".*(cover-letters|cv).*"}[15m])) == 0
         for: 15m
         annotations:
           summary: "No active users - potential service issue"
-          description: "No user activity detected in last 15 minutes"
+          description: "No cover letter or CV traffic detected in last 15 minutes"
           severity: "warning"
 
 
@@ -162,7 +162,7 @@ groups:
 
       # ========== Rate Limiting ==========
       - alert: HighRateLimitingEvents
-        expr: count_over_time({app="coverletter-api"} | json | StatusCode="429" [5m]) > 20
+        expr: sum(increase(http_requests_received_total{status="429"}[5m])) > 20
         for: 5m
         annotations:
           summary: "High rate limiting events"
@@ -175,11 +175,11 @@ groups:
     rules:
       # ========== Logging Pipeline Health ==========
       - alert: LokiHighLogVolume
-        expr: count(count_over_time({app="coverletter-api"}[1m])) > 10000
+        expr: rate(prometheus_tsdb_head_samples_appended_total[1m]) * 60 > 10000
         for: 5m
         annotations:
-          summary: "Loki experiencing high log volume"
-          description: "Log ingestion rate is very high ({{ $value }} logs/minute)"
+          summary: "Prometheus ingesting high sample volume"
+          description: "Sample append rate is high ({{ $value }} samples/minute)"
           severity: "warning"
 
       - alert: PrometheusHighScrapeLatency

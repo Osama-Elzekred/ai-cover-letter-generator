@@ -34,7 +34,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/prometheus/prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -52,10 +53,8 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./loki-config.yml:/etc/loki/local-config.yml:ro
+      - ./infrastructure/observability/loki/loki-config.yml:/etc/loki/local-config.yml:ro
       - loki_data:/loki
-      - ./loki-data:/var/loki
-      - ./loki-wal:/wal
     command: -config.file=/etc/loki/local-config.yml
     networks:
       - coverletter_network
@@ -71,8 +70,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/observability/grafana/dashboards:/etc/grafana/dashboards:ro
     networks:
       - coverletter_network
     depends_on:

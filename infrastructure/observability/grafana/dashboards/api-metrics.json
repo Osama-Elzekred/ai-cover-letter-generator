@@ -19,7 +19,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Current number of active HTTP requests being processed",
       "fieldConfig": {
@@ -76,7 +76,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(http_requests_in_progress)",
@@ -91,7 +91,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Total requests in 5-minute window",
       "fieldConfig": {
@@ -143,7 +143,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "increase(http_requests_received_total[5m])",
@@ -158,7 +158,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "5xx errors in 5-minute window",
       "fieldConfig": {
@@ -211,7 +211,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "increase(http_requests_received_total{status=~\"5..\"}[5m])",
@@ -226,7 +226,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "5xx error rate as percentage",
       "fieldConfig": {
@@ -283,7 +283,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "(increase(http_requests_received_total{status=~\"5..\"}[5m]) / increase(http_requests_received_total[5m])) * 100",
@@ -298,7 +298,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Request latency percentiles (p50, p95, p99) - lower is better",
       "fieldConfig": {
@@ -379,7 +379,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
@@ -390,7 +390,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
@@ -401,7 +401,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
@@ -416,7 +416,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "P95 latency breakdown by endpoint route (table shows slowest endpoints)",
       "fieldConfig": {
@@ -500,7 +500,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (route, le))",
@@ -515,7 +515,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "CPU usage percentage of the .NET process",
       "fieldConfig": {
@@ -572,7 +572,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "process_cpu_seconds_total * 100",
@@ -587,7 +587,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Physical memory currently in use by the process (RSS)",
       "fieldConfig": {
@@ -644,7 +644,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "process_resident_memory_bytes / 1024 / 1024",
@@ -659,7 +659,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Managed GC heap size currently in use",
       "fieldConfig": {
@@ -716,7 +716,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "dotnet_gc_heap_size_bytes / 1024 / 1024",
@@ -803,7 +803,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Exception count trends by type (helps identify error spikes)",
       "fieldConfig": {
@@ -884,7 +884,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "increase(dotnet_exceptions_total[5m])",
@@ -899,7 +899,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Response code distribution pie chart",
       "fieldConfig": {
@@ -991,7 +991,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(http_requests_received_total[5m])) by (status)",
@@ -1006,7 +1006,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Request rate by status code over time (2xx/4xx/5xx)",
       "fieldConfig": {
@@ -1082,7 +1082,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(http_requests_received_total[5m])) by (status)",
@@ -1159,7 +1159,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(5, avg by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | RequestPath!=\"/metrics\" | unwrap Elapsed [5m])))",
+          "expr": "topk(5, avg by (RequestPath) (avg_over_time({app=\"coverletter-api\"} | json | RequestPath!=\"/metrics\" | unwrap Elapsed [5m])))",
           "legendFormat": "{{RequestPath}}",
           "range": true,
           "refId": "A"
@@ -1171,7 +1171,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Request throughput (requests/second) over time",
       "fieldConfig": {
@@ -1250,7 +1250,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(http_requests_received_total[1m]))",
@@ -1265,7 +1265,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "5xx error rate percentage over time - if spikes, investigate",
       "fieldConfig": {
@@ -1352,7 +1352,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "(sum(rate(http_requests_received_total{status=~\"5..\"}[1m])) / sum(rate(http_requests_received_total[1m]))) * 100",
@@ -1367,7 +1367,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "CPU usage trend over time (watch for sustained high CPU)",
       "fieldConfig": {
@@ -1455,7 +1455,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "process_cpu_seconds_total",
@@ -1470,7 +1470,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "afi7qc1pgo16oe"
+        "uid": "prometheus"
       },
       "description": "Memory usage over time (watch for memory leaks)",
       "fieldConfig": {
@@ -1558,7 +1558,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "process_resident_memory_bytes / 1024 / 1024",
@@ -1569,7 +1569,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "afi7qc1pgo16oe"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "dotnet_gc_heap_size_bytes / 1024 / 1024",
