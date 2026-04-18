@@ -1,7 +1,9 @@
 using Asp.Versioning;
+using CoverLetter.Api.Configuration;
 using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Extensions;
 using CoverLetter.Api.HealthChecks;
+using CoverLetter.Api.Logging;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Api.Services;
 using CoverLetter.Application;
@@ -10,13 +12,27 @@ using CoverLetter.Infrastructure;
 using CoverLetter.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Prometheus;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Sinks.Grafana.Loki;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ========== Observability Configuration ==========
+// Load observability settings from appsettings.json
+var observabilityConfig = builder.Configuration.GetSection("Observability");
+var observabilitySettings = new ObservabilitySettings
+{
+    SlowRequestThresholdMs = observabilityConfig.GetValue<int>("SlowRequestThresholdMs", 100),
+    LogTimeZone = observabilityConfig.GetValue<string>("LogTimeZone") ?? "UTC",
+    LogTimeZoneOffset = observabilityConfig.GetValue<string>("LogTimeZoneOffset") ?? "+00:00"
+};
+builder.Services.AddSingleton(observabilitySettings);
 
 // ========== LLM Log-Level Switch ==========
 // Singleton that controls the minimum log level for the LLM provider namespace at runtime.
@@ -30,9 +46,28 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .MinimumLevel.Override("CoverLetter.Infrastructure.LlmProviders", llmLogLevelSwitch)
-    .Enrich.FromLogContext());
+    .Enrich.FromLogContext()
+    .Enrich.With(new TimestampEnricher(observabilitySettings))
+    .Enrich.With(new FormattedLogEnricher(observabilitySettings))
+    .WriteTo.GrafanaLoki(
+        // uri: "http://host.docker.internal:3100", /  / Use host.docker.internal on Windows for Docker networking
+        uri: "http://localhost:3100",  // change it later to host.docker.internal when app running in Docker 
+                                                  //   // Use host.docker.internal on Windows for Docker networking
+        labels: new[]
+        {
+            new LokiLabel { Key = "app", Value = "coverletter-api" },
+            new LokiLabel { Key = "environment", Value = builder.Environment.EnvironmentName },
+            new LokiLabel { Key = "version", Value = "1.0.0" },
+            new LokiLabel { Key = "host", Value = Environment.MachineName }
+        },
+        credentials: null
+    ));
 
-// ========== Global Exception Handler ==========
+// ========== Prometheus Metrics (using prometheus-net) ==========
+// prometheus-net.AspNetCore automatically collects ASP.NET Core and HTTP metrics
+// Exposed at /metrics endpoint for Prometheus to scrape
+
+// Global exception handler converts exceptions to proper HTTP responses
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -116,14 +151,17 @@ builder.Services.AddOpenApi("v1", options =>
 var app = builder.Build();
 
 // ========== Middleware Pipeline ==========
-// Serilog request logging FIRST - logs the final response status
-app.UseSerilogRequestLogging(options =>
-{
-    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
-});
+// HTTP request logging - logs all requests with appropriate log levels
+app.UseMiddleware<HttpRequestLoggingMiddleware>();
+
+// Prometheus HTTP metrics collection middleware
+app.UseHttpMetrics();
 
 // Exception handler converts exceptions to proper HTTP responses
 app.UseExceptionHandler();
+
+// Request latency and slow request tracking is handled via structured logs in Loki
+// (RequestPath, Elapsed, and StatusCode are enriched and queryable)
 
 // CORS must be before authentication and authorization
 app.UseCors(CorsExtensions.GetCorsPolicyName());
@@ -155,6 +193,9 @@ app.UseHttpsRedirection();
 
 // ========== Endpoints ==========
 app.MapHealthEndpoints(healthCheckOptions);
+
+// Prometheus metrics endpoint - exposes metrics in Prometheus format
+app.MapMetrics();
 
 var versionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(1, 0))
