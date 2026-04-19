@@ -52,7 +52,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.GrafanaLoki(
         // uri: "http://host.docker.internal:3100", /  / Use host.docker.internal on Windows for Docker networking
         uri: "http://localhost:3100",  // change it later to host.docker.internal when app running in Docker 
-                                                  //   // Use host.docker.internal on Windows for Docker networking
         labels: new[]
         {
             new LokiLabel { Key = "app", Value = "coverletter-api" },
@@ -210,6 +209,7 @@ var v1Routes = app.MapGroup("/api/v{version:apiVersion}")
 v1Routes.MapCoverLetterEndpoints();
 v1Routes.MapCvEndpoints();
 v1Routes.MapSettingsEndpoints();
+v1Routes.MapExtensionObservabilityEndpoints();
 v1Routes.MapPromptsEndpoints();
 v1Routes.MapTextareaAnswerEndpoints();
 

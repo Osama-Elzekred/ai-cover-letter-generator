@@ -70,7 +70,7 @@ public class FormattedLogEnricher : ILogEventEnricher
     var level = logEvent.Level.ToString().Substring(0, 3).ToUpper();
     var message = logEvent.MessageTemplate.Render(logEvent.Properties);
 
-    var formattedLog = $"[{time} {level}] {message}";
+    var formattedLog = $"{message}";
     logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("FormattedLog", formattedLog));
   }
 }

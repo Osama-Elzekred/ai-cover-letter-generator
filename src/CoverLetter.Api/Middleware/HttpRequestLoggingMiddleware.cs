@@ -30,8 +30,9 @@ public class HttpRequestLoggingMiddleware
   {
     var requestPath = context.Request.Path.ToString();
 
-    // Skip logging for /metrics endpoint (Prometheus scrapes frequently)
-    if (context.Request.Path.StartsWithSegments("/metrics", StringComparison.OrdinalIgnoreCase))
+    // Skip high-frequency telemetry endpoints that add noise without actionable value in request logs.
+    if (context.Request.Path.StartsWithSegments("/metrics", StringComparison.OrdinalIgnoreCase)
+        || context.Request.Path.StartsWithSegments("/api/v1/observability/extension/events", StringComparison.OrdinalIgnoreCase))
     {
       await _next(context);
       return;

@@ -64,6 +64,9 @@ function initializeTextareaDetection(): void {
   });
 
   console.log('[Textarea Detection] Initialized');
+  emitContentTelemetry('textarea_detection_initialized', true, 'LinkedIn textarea detection initialized', {
+    operation: 'initialize_textarea_detection'
+  });
 }
 
 /**
@@ -180,6 +183,9 @@ function injectIconForTextarea(
     console.log(`[Textarea Detection] Icon injected for field: ${fieldLabel}`);
   } catch (error) {
     console.error('[Textarea Detection] Error injecting icon:', error);
+    emitContentTelemetry('textarea_icon_injection_failed', false, 'Failed to inject AI icon', {
+      operation: 'inject_textarea_icon'
+    });
   }
 }
 
@@ -257,12 +263,18 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
   if (!button) return;
 
   try {
+    const startedAt = Date.now();
+
     // Show loading state
     button.disabled = true;
     button.innerHTML = '⏳';
     button.style.opacity = '1';
 
     console.log('[Textarea Detection] Generating answer for:', metadata.fieldLabel);
+    emitContentTelemetry('textarea_answer_requested', true, `Requested answer for ${metadata.fieldLabel}`, {
+      operation: 'generate_textarea_answer',
+      field_label: metadata.fieldLabel
+    });
 
     // Call background to generate answer using the field label as the question
     const response = await chrome.runtime.sendMessage({
@@ -335,8 +347,22 @@ async function handleIconClick(metadata: TextareaMetadata): Promise<void> {
     }, 2000);
 
     console.log('[Textarea Detection] Answer injected successfully');
+    emitContentTelemetry('textarea_answer_injected', true, 'Answer injected into LinkedIn field', {
+      operation: 'generate_textarea_answer',
+      field_label: metadata.fieldLabel,
+      duration_ms: String(Date.now() - startedAt)
+    });
   } catch (error) {
     console.error('[Textarea Detection] Error generating answer:', error);
+    emitContentTelemetry(
+      'textarea_answer_failed',
+      false,
+      error instanceof Error ? error.message : 'Failed to generate textarea answer',
+      {
+        operation: 'generate_textarea_answer',
+        field_label: metadata.fieldLabel
+      }
+    );
     
     // Show error state
     button.innerHTML = '✗';
@@ -779,6 +805,29 @@ let isLetterReady = false;
 let lastGeneratedCv: any = null;
 let lastGeneratedLetter: any = null;
 
+function emitContentTelemetry(
+  eventType: string,
+  success = true,
+  message?: string,
+  metadata?: Record<string, string>
+): void {
+  void chrome.runtime
+    .sendMessage({
+      type: 'TRACK_EXTENSION_EVENT',
+      payload: {
+        eventType,
+        source: 'content',
+        success,
+        level: success ? 'info' : 'warning',
+        message,
+        metadata
+      }
+    })
+    .catch(() => {
+      // Ignore telemetry bridge errors.
+    });
+}
+
 /**
  * Extract job data from LinkedIn job posting page
  */
@@ -869,6 +918,9 @@ function injectCoPilotWidget() {
   }
   
   console.log('[AI Co-Pilot] Widget Injected under Save button');
+  emitContentTelemetry('linkedin_widget_injected', true, 'LinkedIn AI Co-Pilot widget injected', {
+    operation: 'inject_linkedin_widget'
+  });
 }
 
 /**
@@ -2229,8 +2281,14 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
   if (message.type === 'EXTRACT_JOB_DATA') {
     const jobData = extractJobData();
     if (jobData) {
+      emitContentTelemetry('job_data_extracted', true, 'Job data extracted from LinkedIn page', {
+        operation: 'extract_job_data'
+      });
       sendResponse({ type: 'JOB_DATA_EXTRACTED', payload: jobData });
     } else {
+      emitContentTelemetry('job_data_extract_failed', false, 'Could not extract job details from LinkedIn page', {
+        operation: 'extract_job_data'
+      });
       sendResponse({ type: 'ERROR', error: 'Could not find job details.' });
     }
   }

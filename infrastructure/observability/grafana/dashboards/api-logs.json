@@ -55,7 +55,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{app=\"coverletter-api\"} | json | level=~\"error|fatal\" | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
+          "expr": "{app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | level=~\"error|fatal\" | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -150,7 +150,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum by (level) (count_over_time({app=\"coverletter-api\"} | json | level=~\"info|warning|error|fatal\" | RequestPath!=\"/metrics\" [5m]))",
+          "expr": "sum by (level) (count_over_time({app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | level=~\"info|warning|error|fatal\" | RequestPath!=\"/metrics\" [5m]))",
           "legendFormat": "{{level}}",
           "queryType": "range",
           "refId": "A"
@@ -226,7 +226,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | RequestPath!=\"\" | RequestPath!=\"/metrics\" [10m]))",
+          "expr": "sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | RequestPath!=\"\" | RequestPath!=\"/metrics\" [10m]))",
           "legendFormat": "{{RequestPath}}",
           "queryType": "range",
           "refId": "A"
@@ -296,7 +296,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum by (StatusCode) (count_over_time({app=\"coverletter-api\"} | json | StatusCode!=\"\" | RequestPath!=\"/metrics\" [10m]))",
+          "expr": "sum by (StatusCode) (count_over_time({app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | StatusCode!=\"\" | RequestPath!=\"/metrics\" [10m]))",
           "legendFormat": "{{StatusCode}} ",
           "queryType": "range",
           "refId": "A"
@@ -374,7 +374,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "topk(5, sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | StatusCode=\"500\" | RequestPath!=\"/metrics\" [10m])))",
+          "expr": "topk(5, sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | StatusCode=\"500\" | RequestPath!=\"/metrics\" [10m])))",
           "legendFormat": "{{RequestPath}}",
           "queryType": "range",
           "refId": "A"
@@ -416,7 +416,7 @@
       "pluginVersion": "12.4.2",
       "targets": [
         {
-          "expr": "{app=\"coverletter-api\"} | json | Elapsed > 100 | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
+          "expr": "{app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | Elapsed > 100 | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
           "refId": "A"
         }
       ],
@@ -508,7 +508,7 @@
         {
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | Elapsed > 100 | RequestPath!=\"\" | RequestPath!=\"/metrics\" [5m]))",
+          "expr": "sum by (RequestPath) (count_over_time({app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | Elapsed > 100 | RequestPath!=\"\" | RequestPath!=\"/metrics\" [5m]))",
           "legendFormat": "{{RequestPath}}",
           "queryType": "range",
           "refId": "A",
@@ -551,7 +551,7 @@
       "pluginVersion": "12.4.2",
       "targets": [
         {
-          "expr": "{app=\"coverletter-api\"} | json | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
+          "expr": "{app=\"coverletter-api\"} | json | SourceContext!=\"ExtensionObservability\" | RequestPath!=\"/metrics\" | line_format \"{{.FormattedLog}}\"",
           "refId": "A"
         }
       ],
@@ -578,6 +578,6 @@
   "timezone": "browser",
   "title": "API Logs & Observability",
   "uid": "ad694nz",
-  "version": 22,
+  "version": 23,
   "weekStart": ""
 }
