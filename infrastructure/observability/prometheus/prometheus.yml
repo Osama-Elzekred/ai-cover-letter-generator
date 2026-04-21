@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'coverletter-monitor'
+
+# Load alerting rules
+rule_files:
+  - 'prometheus-rules.yml'
+
+# Alertmanager configuration (optional - for webhook notifications)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - 'alertmanager:9093'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'dotnet-api'
+    static_configs:
+      - targets: ['host.docker.internal:5012']
+    metrics_path: '/metrics'
+    scrape_interval: 5s

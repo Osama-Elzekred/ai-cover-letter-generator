@@ -105,6 +105,8 @@ lcov.info
 
 ### Docker ###
 docker-compose.override.yml
+loki-data/
+loki-wal/
 
 ### Kubernetes Secrets ###
 *-secret.yaml

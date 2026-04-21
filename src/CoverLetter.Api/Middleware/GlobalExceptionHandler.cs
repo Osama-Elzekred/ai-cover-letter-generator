@@ -4,6 +4,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
+using Serilog.Context;
 using ProblemDetails = Microsoft.AspNetCore.Mvc.ProblemDetails;
 
 namespace CoverLetter.Api.Middleware;
@@ -42,11 +43,17 @@ public sealed class GlobalExceptionHandler(
         }
         else
         {
-            logger.LogError(
-                exception,
-                "Unhandled exception occurred: {ExceptionType} - {Message}",
-                exception.GetType().Name,
-                exception.Message);
+            // Enrich log context with error details for better observability in Loki
+            using (LogContext.PushProperty("ErrorType", exception.GetType().Name))
+            using (LogContext.PushProperty("ErrorDetail", exception.Message))
+            using (LogContext.PushProperty("StackTrace", exception.StackTrace))
+            {
+                logger.LogError(
+                    exception,
+                    "Unhandled exception occurred: {ExceptionType} - {Message}",
+                    exception.GetType().Name,
+                    exception.Message);
+            }
         }
 
         var problemDetails = new ProblemDetails

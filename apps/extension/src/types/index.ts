@@ -80,8 +80,6 @@ export interface StorageData {
 export type MessageType = 
   | 'EXTRACT_JOB_DATA'
   | 'JOB_DATA_EXTRACTED'
-  | 'GENERATE_COVER_LETTER'
-  | 'UPLOAD_CV'
   | 'ERROR'
   | 'CUSTOMIZE_CV_DIRECT'
   | 'GENERATE_COVER_LETTER_DIRECT'
@@ -93,6 +91,7 @@ export type MessageType =
   | 'GET_CUSTOM_PROMPT'
   | 'DELETE_CUSTOM_PROMPT'
   | 'GENERATE_TEXTAREA_ANSWER'
+  | 'TRACK_EXTENSION_EVENT'
   | 'OPEN_TEXTAREA_MODAL'
   | 'INSERT_TEXTAREA_ANSWER';
 

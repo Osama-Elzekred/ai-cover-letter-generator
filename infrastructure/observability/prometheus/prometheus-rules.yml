@@ -1,0 +1,191 @@
+groups:
+  - name: api_health
+    interval: 30s
+    rules:
+      # ========== Request-Level Alerts ==========
+      - alert: HighErrorRate
+        expr: (sum(increase(http_requests_received_total{status=~"5.."}[5m])) / clamp_min(sum(increase(http_requests_received_total[5m])), 1)) > 0.05
+        for: 5m
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          severity: "critical"
+
+      - alert: HighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 5
+        for: 5m
+        annotations:
+          summary: "High request latency detected"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 5s)"
+          severity: "warning"
+
+      - alert: SlowEndpoint
+        expr: histogram_quantile(0.95, sum by (route, le) (rate(http_request_duration_seconds_bucket[5m]))) > 10
+        for: 5m
+        annotations:
+          summary: "Slow endpoint detected"
+          description: "Endpoint {{ $labels.route }} P95 latency is {{ $value | humanizeDuration }}"
+          severity: "warning"
+
+      # ========== Resource Alerts ==========
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 3m
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+          severity: "warning"
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 512
+        for: 3m
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}MB"
+          severity: "warning"
+
+      - alert: CriticalMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 750
+        for: 1m
+        annotations:
+          summary: "Critical memory usage - potential OOM"
+          description: "Memory usage is {{ $value | humanize }}MB"
+          severity: "critical"
+
+      # ========== Exception Tracking ==========
+      - alert: HighExceptionRate
+        expr: rate(dotnet_exceptions_total[1m]) > 1
+        for: 5m
+        annotations:
+          summary: "High exception rate"
+          description: "Exception rate is {{ $value | humanize }} per second"
+          severity: "warning"
+
+      # ========== GC Pressure ==========
+      - alert: FrequentGarbageCollection
+        expr: rate(dotnet_gc_collections_total[1m]) > 10
+        for: 5m
+        annotations:
+          summary: "Frequent garbage collection"
+          description: "GC rate is {{ $value | humanize }} per second (memory pressure)"
+          severity: "warning"
+
+
+  - name: business_metrics
+    interval: 60s
+    rules:
+      # ========== Business KPIs ==========
+      - alert: CoverLetterGenerationFailures
+        expr: sum(increase(http_requests_received_total{route=~".*cover-letters.*",status!~"2.."}[5m])) > 10
+        for: 5m
+        annotations:
+          summary: "Cover letter generation failures spike"
+          description: "{{ $value }} cover letter requests failed in last 5 minutes"
+          severity: "critical"
+
+      - alert: LowCoverLetterSuccessRate
+        expr: (sum(increase(http_requests_received_total{route=~".*cover-letters.*",status=~"2.."}[5m])) / clamp_min(sum(increase(http_requests_received_total{route=~".*cover-letters.*"}[5m])), 1)) < 0.9
+        for: 10m
+        annotations:
+          summary: "Low cover letter success rate"
+          description: "Success rate is {{ $value | humanizePercentage }} (threshold: 90%)"
+          severity: "warning"
+
+      - alert: GroqAPIErrors
+        expr: sum(increase(http_requests_received_total{route=~".*cover-letters.*",status=~"5.."}[5m])) > 5
+        for: 5m
+        annotations:
+          summary: "Cover letter backend 5xx errors detected"
+          description: "{{ $value }} server errors for cover letter routes in last 5 minutes"
+          severity: "critical"
+
+      - alert: HighCoverLetterLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{route=~".*cover-letters.*"}[5m]))) > 5
+        for: 5m
+        annotations:
+          summary: "High cover letter generation latency"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 5s)"
+          severity: "warning"
+
+      - alert: LaTeXCompilationFailures
+        expr: sum(increase(http_requests_received_total{route=~".*cv/compile.*",status!~"2.."}[5m])) > 3
+        for: 5m
+        annotations:
+          summary: "LaTeX compilation failures detected"
+          description: "{{ $value }} failed compile requests in last 5 minutes"
+          severity: "critical"
+
+      - alert: CVParsingFailures
+        expr: sum(increase(http_requests_received_total{route=~".*cv/(parse|customize|compile).*",status!~"2.."}[5m])) > 5
+        for: 5m
+        annotations:
+          summary: "CV parsing/upload failures"
+          description: "{{ $value }} CV operation failures in last 5 minutes"
+          severity: "warning"
+
+      - alert: NoActiveUsers
+        expr: sum(increase(http_requests_received_total{route=~".*(cover-letters|cv).*"}[15m])) == 0
+        for: 15m
+        annotations:
+          summary: "No active users - potential service issue"
+          description: "No cover letter or CV traffic detected in last 15 minutes"
+          severity: "warning"
+
+
+  - name: infrastructure
+    interval: 60s
+    rules:
+      # ========== Database Health ==========
+      - alert: DatabaseUnhealthy
+        expr: health_database == 0
+        for: 2m
+        annotations:
+          summary: "Database health check failing"
+          description: "Database is not responding to health checks"
+          severity: "critical"
+
+      - alert: LatexCompilerUnhealthy
+        expr: health_latex_compiler == 0
+        for: 2m
+        annotations:
+          summary: "LaTeX compiler health check failing"
+          description: "LaTeX compiler container is not responding"
+          severity: "critical"
+
+      - alert: MemoryCacheUnhealthy
+        expr: health_memory_cache == 0
+        for: 2m
+        annotations:
+          summary: "Memory cache health check failing"
+          description: "In-memory cache is not responding"
+          severity: "warning"
+
+      # ========== Rate Limiting ==========
+      - alert: HighRateLimitingEvents
+        expr: sum(increase(http_requests_received_total{status="429"}[5m])) > 20
+        for: 5m
+        annotations:
+          summary: "High rate limiting events"
+          description: "{{ $value }} rate limit rejections in last 5 minutes"
+          severity: "warning"
+
+
+  - name: observability
+    interval: 60s
+    rules:
+      # ========== Logging Pipeline Health ==========
+      - alert: LokiHighLogVolume
+        expr: rate(prometheus_tsdb_head_samples_appended_total[1m]) * 60 > 10000
+        for: 5m
+        annotations:
+          summary: "Prometheus ingesting high sample volume"
+          description: "Sample append rate is high ({{ $value }} samples/minute)"
+          severity: "warning"
+
+      - alert: PrometheusHighScrapeLatency
+        expr: prometheus_tsdb_symbol_table_size_bytes / 1024 / 1024 > 100
+        for: 10m
+        annotations:
+          summary: "Prometheus TSDB growing fast"
+          description: "Prometheus symbol table is {{ $value | humanize }}MB"
+          severity: "warning"
