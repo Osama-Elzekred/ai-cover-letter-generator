@@ -22,6 +22,6 @@ scrape_configs:
 
   - job_name: 'dotnet-api'
     static_configs:
-      - targets: ['host.docker.internal:5012']
+      - targets: ['coverletterapi:5012']
     metrics_path: '/metrics'
     scrape_interval: 5s
