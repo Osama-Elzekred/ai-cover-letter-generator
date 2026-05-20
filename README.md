@@ -72,6 +72,23 @@ AI Job Application Copilot that combines a Chrome extension with a backend API t
 - Error handling is centralized with ProblemDetails responses.
 - Observability includes structured logs and metrics with Prometheus/Grafana/Loki integration.
 
+## Observability & Monitoring
+
+The project includes a complete observability stack:
+
+- **Prometheus**: Collects metrics on HTTP requests, response times, endpoints.
+- **Grafana**: Visual dashboards for monitoring performance and trends (http://localhost:3000).
+- **Loki**: Aggregates structured logs from the API for querying and debugging.
+- **Serilog**: Structured logging with configurable enrichment (timestamps, trace IDs, custom fields).
+
+### Smart Error Messages
+
+API errors are descriptive and actionable:
+- **Authentication failures** (401/403): Clear messaging about invalid/expired API keys with guidance to update in Settings.
+- **Rate limits** (429): Suggestions to use BYOK mode for higher throughput.
+- **Validation errors** (400): Field-level error details for form corrections.
+- **Upstream service errors**: Helpful hints with HTTP status codes.
+
 ## Getting Started
 
 ### Quick Setup
@@ -79,24 +96,63 @@ AI Job Application Copilot that combines a Chrome extension with a backend API t
 ```bash
 git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
 cd ai-cover-letter-generator
-bash setup.sh
+bash setup.sh  # One-time setup: configure secrets, build services, run migrations
 ```
 
-Then run the API:
+### Development Workflow (Recommended)
 
+After setup, use this for fast, hot-reload development:
+
+**Terminal 1 — Start services (PostgreSQL, Grafana, Prometheus, Loki):**
+```bash
+
+# Linux/macOS
+bash dev-services.sh
+```
+
+**Terminal 2 — Run API with hot-reload:**
 ```bash
 cd src/CoverLetter.Api
-dotnet run
+dotnet watch run
 ```
 
-API docs are available at:
+Then access:
+- **API**: http://localhost:5012
+- **API Docs**: http://localhost:5012/scalar/v1
+- **Grafana**: http://localhost:3000 (admin/admin)
 
-- http://localhost:5012/scalar/v1
+### Full Docker Stack (Alternative)
 
-For detailed setup, see [SETUP.md](SETUP.md).
+If you prefer everything in containers:
+
+```bash
+docker-compose -f docker-compose.dev.yml up
+```
+
+API will be available at http://localhost:5012.
 
 ### Prerequisites
 
 - .NET 10 SDK
 - Docker and Docker Compose
-- Groq API key (for BYOK mode)
+- Groq API key (get free key from https://console.groq.com/keys)
+
+## Troubleshooting
+
+### API Key Not Working
+- **Local development**: Ensure your Groq API key was set during `bash setup.sh`. Check user secrets: `dotnet user-secrets list` in `src/CoverLetter.Api`.
+- **Docker**: Verify `.env` file exists in project root with `GROQ_API_KEY=your-key`. If using Windows, restart Docker after updating `.env`.
+
+### Loki Connection Error When Running Locally
+- This is expected—when running API with `dotnet watch run`, logs try to send to `http://localhost:3100`.
+- Either: (1) Start Loki with `docker-compose` first, or (2) Logs will fall back gracefully to console.
+
+### PostgreSQL Connection Issues
+- Ensure services are running: `docker-compose -f docker-compose.dev.yml up postgres`
+- Check connection string in `appsettings.json` or user secrets matches your setup.
+- Database is auto-created; migrations run on startup.
+
+### LaTeX Compilation Errors
+- LaTeX compiler requires Docker. Ensure it's running: `docker-compose -f docker-compose.dev.yml up` (includes all services).
+
+For more setup details, see [SETUP.md](SETUP.md).
