@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -27,6 +27,36 @@ services:
     command: echo "LaTeX compiler image built successfully"
     profiles:
       - tools
+
+  coverletterapi:
+    build:
+      context: .
+      dockerfile: src/CoverLetter.Api/Dockerfile
+    image: coverletterapi:dev
+    container_name: coverletter_api
+    ports:
+      - "5012:5012"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5012
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=coverletter_dev;Username=postgres;Password=postgres
+      - Groq__ApiKey=${GROQ_API_KEY}
+      - Logging__Loki__Uri=http://loki:3100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5012/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - coverletter_network
 
   prometheus:
     image: prom/prometheus:latest

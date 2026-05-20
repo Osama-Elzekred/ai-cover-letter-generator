@@ -50,8 +50,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.With(new TimestampEnricher(observabilitySettings))
     .Enrich.With(new FormattedLogEnricher(observabilitySettings))
     .WriteTo.GrafanaLoki(
-        // uri: "http://host.docker.internal:3100", /  / Use host.docker.internal on Windows for Docker networking
-        uri: "http://localhost:3100",  // change it later to host.docker.internal when app running in Docker 
+        uri: builder.Configuration["Logging:Loki:Uri"] ?? "http://localhost:3100",
         labels: new[]
         {
             new LokiLabel { Key = "app", Value = "coverletter-api" },

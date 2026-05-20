@@ -9,150 +9,92 @@
 
 ## Quick Setup (Recommended)
 
-For new users, run the automated setup script:
+Run everything in Docker with a single command:
 
 ```bash
 git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
 cd ai-cover-letter-generator
-bash setup.sh
-```
-
-The script will:
-- ✅ Restore .NET dependencies
-- ✅ Prompt for your Groq API key and database password
-- ✅ Configure user secrets
-- ✅ Start PostgreSQL in Docker
-- ✅ Build the LaTeX compiler image
-- ✅ Run database migrations
-
-After setup completes:
-```bash
-cd src/CoverLetter.Api
-dotnet run
-```
-
-Then open: `http://localhost:5000/scalar/v1`
-
----
-
-## Manual Setup (Step-by-Step)
-
-If you prefer to understand each step or need to troubleshoot:
-
-### 1. Clone & Install Dependencies
-
-```bash
-git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
-cd ai-cover-letter-generator
-dotnet restore
-```
-
----
-
-### 2. Set User Secrets for Development
-
-User secrets are stored **outside the repo** and won't be committed.
-
-```bash
-cd src/CoverLetter.Api
-
-# Set database connection string (use your own password)
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=coverletter_dev;Username=postgres;Password=postgres"
-
-# Set Groq API Key (get from https://console.groq.com/keys)
-dotnet user-secrets set "Groq:ApiKey" "your-groq-api-key-here"
-```
-
-To verify secrets were stored:
-```bash
-dotnet user-secrets list
-```
-
----
-
-### 3. Start PostgreSQL
-
-```bash
 docker-compose -f docker-compose.dev.yml up -d
 ```
 
-Verify it's running:
-```bash
-docker ps  # Should show coverletter_postgres
-```
+Then:
+1. **Get your Groq API key** from https://console.groq.com/keys
+2. **Save it in the extension** → Settings tab → Groq API Key field
+
+That's it! Everything runs:
+- ✅ Backend API on port 5012
+- ✅ PostgreSQL database
+- ✅ Prometheus (metrics)
+- ✅ Loki (logs)
+- ✅ Grafana (dashboards)
+- ✅ LaTeX compiler (PDF generation)
+
+View the API docs: `http://localhost:5012/scalar/v1`
 
 ---
 
-### 4. Build LaTeX Compiler Image
+## Advanced Setup (Local .NET Development)
 
-The API uses Docker to compile LaTeX → PDF in isolated containers.
+If you want to run the backend directly on your machine (not in Docker):
 
-```bash
-# Build the LaTeX compiler image using docker-compose
-docker-compose -f docker-compose.dev.yml build latex-compiler
-```
+### Prerequisites
+- .NET 10 SDK
+- PostgreSQL running locally or in Docker
 
-**Why:** Sandboxes untrusted LaTeX code with no network, limited resources, and read-only filesystem (same pattern AWS Lambda uses). Each compilation spawns a fresh container and exits immediately.
-
----
-
-### 5. Run Database Migrations
+### Steps
 
 ```bash
+# Clone and restore dependencies
+git clone https://github.com/Osama-Elzekred/ai-cover-letter-generator.git
+cd ai-cover-letter-generator
+dotnet restore
+
+# Set your Groq API key
 cd src/CoverLetter.Api
+dotnet user-secrets set "Groq:ApiKey" "gsk_your_key_here"
+
+# Run migrations
 dotnet ef database update
-```
 
----
-
-### 6. Start the API
-
-```bash
-cd src/CoverLetter.Api
+# Start the API
 dotnet run
 ```
 
-The API will start at `https://localhost:5001` or `http://localhost:5000`
+The API will be at: `http://localhost:5012/scalar/v1`
 
-**View API Docs:** Open your browser at `http://localhost:5000/scalar/v1`
-
----
-
-### 7. Test the API
-
-Use the HTTP test files:
-```bash
-# In VS Code with REST Client extension:
-# Open src/CoverLetter.Api/http-tests/health.http
-# Click "Send Request"
-```
-
-Or use curl:
-```bash
-curl http://localhost:5000/health
-```
+**Note:** You'll still need PostgreSQL running (use `docker-compose -f docker-compose.dev.yml up -d postgres` to start just the database)
 
 ---
 
 ## Configuration Files
 
-| File | Purpose | In Repo? | Notes |
-|------|---------|----------|-------|
-| `docker-compose.dev.yml` | Local Docker setup (Postgres + LaTeX) | ✅ YES | Default password: `postgres` (dev only) |
-| `appsettings.json` | Shared API config with safe defaults | ✅ YES | No secrets, safe to commit |
-| User Secrets | API keys & credentials | ❌ NO | Set via `dotnet user-secrets` or `setup.sh` |
-
-**Note:** Sensitive credentials (Groq API key, custom DB passwords) are stored in user secrets outside the repo.
+| File | Purpose |
+|------|---------|
+| `docker-compose.dev.yml` | Complete local setup (Backend, Postgres, Loki, Prometheus, Grafana, LaTeX) |
+| `appsettings.json` | API configuration (no secrets, safe to commit) |
+| `.env.docker` | Environment variables for docker-compose (git-ignored) |
 
 ---
+
+## Service URLs
+
+When using Docker Compose:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Backend API | http://localhost:5012/scalar/v1 | OpenAPI documentation |
+| Health Check | http://localhost:5012/health | API health status |
+| Prometheus | http://localhost:9090 | Metrics dashboard |
+| Grafana | http://localhost:3000 | Log/metric visualization (admin/admin) |
+| Database | localhost:5432 | PostgreSQL connection |
 
 ## Stopping Services
 
 ```bash
-# Stop PostgreSQL
+# Stop all services
 docker-compose -f docker-compose.dev.yml down
 
-# Remove data (if needed)
+# Stop and remove data
 docker-compose -f docker-compose.dev.yml down -v
 ```
 
@@ -160,27 +102,30 @@ docker-compose -f docker-compose.dev.yml down -v
 
 ## Troubleshooting
 
-### Connection Refused
-- Ensure Docker is running and PostgreSQL container started
-- Check `docker logs coverletter_postgres`
+### Docker Services Not Starting
+```bash
+# Check service status
+docker-compose -f docker-compose.dev.yml ps
 
-### User Secrets Not Found
-- Make sure you ran `dotnet user-secrets set` in `src/CoverLetter.Api` directory
-- Check `dotnet user-secrets list` to verify they're stored
+# View logs
+docker-compose -f docker-compose.dev.yml logs coverletterapi
+```
 
-### Groq API Errors
-- Verify your API key is set: `dotnet user-secrets list | grep Groq`
-- Check your Groq account has remaining API quota
+### Backend Returns 401 Unauthorized
+- Save your Groq API key in the extension → Settings tab
+- Or set `GROQ_API_KEY` environment variable before starting docker-compose
 
-### LaTeX Compilation Fails
-- Ensure Docker is running
-- Verify the image exists: `docker images | grep latexmk-compiler`
-- Rebuild if needed: `docker-compose -f docker-compose.dev.yml build latex-compiler`
+### Database Connection Errors
+- Ensure postgres service is running: `docker ps | grep postgres`
+- Check connection string uses `postgres` (not localhost) when running in Docker
 
----
+### Can't Access API Docs
+- Verify backend is running: `curl http://localhost:5012/health`
+- Check if port 5012 is already in use: `netstat -an | findstr 5012` (Windows)
 
-## Next Steps
+## Architecture & Learning
 
-- Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the project structure
-- Check [http-tests](src/CoverLetter.Api/http-tests/) for example requests
-- Review [PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md) for upcoming phases
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Project structure (Onion layers, MediatR, Result<T>)
+- **[PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md)** - Upcoming features and phases
+- **[http-tests/](src/CoverLetter.Api/http-tests/)** - Example API requests
+- **[Copilot Instructions](.github/copilot-instructions.md)** - Development guidelines
