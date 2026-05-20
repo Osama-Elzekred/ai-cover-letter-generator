@@ -93,6 +93,25 @@ public sealed class GroqLlmService : ILlmService
           "AI provider rate limit reached. Please retry in a few seconds, or use your own API key in Settings (BYOK) for higher limits.",
           ResultType.TooManyRequests);
     }
+    catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)
+    {
+      stopwatch.Stop();
+      var keySource = isUserKey ? "your provided API key" : "the default API key";
+      _logger.LogWarning(ex, "Groq API authentication failed (403/401) with {KeySource}. Key: {MaskedKey}",
+        keySource, MaskApiKey(apiKey));
+      return Result.Failure<LlmResponse>(
+          $"Invalid or expired API key: {keySource}. Please verify your API key in Settings (BYOK) is correct, or contact support if using the default key.",
+          ResultType.Forbidden);
+    }
+    catch (ApiException ex)
+    {
+      stopwatch.Stop();
+      _logger.LogError(ex, "Groq API error ({StatusCode}) after {ElapsedMs}ms: {Message}",
+        ex.StatusCode, stopwatch.ElapsedMilliseconds, ex.Message);
+      return Result.Failure<LlmResponse>(
+          $"AI provider error ({(int)ex.StatusCode}). Please try again or use your own API key in Settings (BYOK).",
+          ResultType.Error);
+    }
   }
 
   private static string MaskApiKey(string apiKey)

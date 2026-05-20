@@ -63,6 +63,14 @@ echo ""
 # Go back to root
 cd ../..
 
+# Create .env file for docker-compose
+echo "Creating .env file for Docker..."
+cat > .env << EOF
+GROQ_API_KEY=$GROQ_API_KEY
+EOF
+echo -e "${GREEN}✅ .env file created${NC}"
+echo ""
+
 # Start PostgreSQL
 echo "🐘 Starting PostgreSQL..."
 docker-compose -f docker-compose.dev.yml up -d
@@ -88,5 +96,17 @@ echo -e "${GREEN}======================================"
 echo "  ✅ Setup Complete!"
 echo "======================================${NC}"
 echo ""
-echo "To start the API, run:"
-echo "  cd src/CoverLetter.Api && dotnet run"
+echo "📝 Development Workflow:"
+echo ""
+echo "Option 1: Local Development (Recommended) - Hot Reload"
+echo "  Terminal 1: docker-compose -f docker-compose.dev.yml up postgres loki prometheus grafana"
+echo "  Terminal 2: cd src/CoverLetter.Api && dotnet watch run"
+echo ""
+echo "Option 2: Full Docker Stack"
+echo "  docker-compose -f docker-compose.dev.yml up"
+echo ""
+echo "🔍 Access Points:"
+echo "  • API: http://localhost:5012"
+echo "  • Docs: http://localhost:5012/scalar/v1"
+echo "  • Grafana: http://localhost:3000 (admin/admin)"
+echo ""

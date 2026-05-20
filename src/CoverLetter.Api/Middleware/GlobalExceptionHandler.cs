@@ -129,10 +129,20 @@ public sealed class GlobalExceptionHandler(
                 "Upstream Rate Limit",
                 "The AI provider is currently rate-limiting requests. Please retry in a few seconds or configure your own API key for higher limits."),
 
+            ApiException apiEx when apiEx.StatusCode == HttpStatusCode.Forbidden => (
+                HttpStatusCode.BadGateway,
+                "API Authentication Failed",
+                "The API key is invalid, expired, or restricted. Please verify your API key in Settings (BYOK) or contact support."),
+
+            ApiException apiEx when apiEx.StatusCode == HttpStatusCode.Unauthorized => (
+                HttpStatusCode.BadGateway,
+                "API Authentication Failed",
+                "Authentication with the AI provider failed. Please verify your API key in Settings (BYOK) or contact support."),
+
             ApiException apiEx => (
                 HttpStatusCode.BadGateway,
                 "External API Error",
-                $"Error communicating with external service: {apiEx.Message}"),
+                $"Error communicating with external service ({(int)apiEx.StatusCode}): {apiEx.Message}"),
 
             HttpRequestException httpEx => (
                 HttpStatusCode.ServiceUnavailable,

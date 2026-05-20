@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -41,6 +41,7 @@ services:
       - ASPNETCORE_URLS=http://+:5012
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=coverletter_dev;Username=postgres;Password=postgres
       - Groq__ApiKey=${GROQ_API_KEY}
+      - Logging__Loki__Uri=http://loki:3100
     depends_on:
       postgres:
         condition: service_healthy

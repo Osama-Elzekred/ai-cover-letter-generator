@@ -50,7 +50,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.With(new TimestampEnricher(observabilitySettings))
     .Enrich.With(new FormattedLogEnricher(observabilitySettings))
     .WriteTo.GrafanaLoki(
-        uri: "http://loki:3100",  // Docker service name for Loki 
+        uri: builder.Configuration["Logging:Loki:Uri"] ?? "http://localhost:3100",
         labels: new[]
         {
             new LokiLabel { Key = "app", Value = "coverletter-api" },

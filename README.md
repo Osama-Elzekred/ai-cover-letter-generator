@@ -1,72 +1,78 @@
 # AI Cover Letter Generator
 
-An intelligent system that generates personalized, professional cover letters based on:
+AI Job Application Copilot that combines a Chrome extension with a backend API to help candidates apply faster with higher-quality, personalized content.
 
-- The user’s CV  
-- Real job descriptions extracted from job sites (LinkedIn, Indeed, etc.)  
-- A customizable prompt template per user  
+## What It Does
 
-The system consists of:
+- Generates personalized cover letters using stored CV data plus the target job description.
+- Creates customized CV outputs for specific jobs and returns both LaTeX source and compiled PDF.
+- Auto-detects job context from LinkedIn job pages in the extension.
+- Generates focused answers for LinkedIn application text fields using your CV and optional job context.
+- Lets users save custom prompts per AI service (cover letter, CV customization, match analysis, textarea answers).
+- Supports BYOK (Bring Your Own Key): users with their own API key bypass default rate limits.
 
-- A **browser extension** (Chrome/Edge) that detects job descriptions automatically.
-- A **backend written in .NET 10**, using modern minimal APIs.
-- An AI integration powered by **Groq LLaMA3-70B** (OpenAI-compatible API).
-- A long-term architecture evolving into **distributed microservices**, including:
-  - gRPC APIs
-  - REST APIs
-  - Message queue (RabbitMQ/Kafka)
-  - Outbox pattern
-  - Background workers
-  - PostgreSQL Database
-  - OpenTelemetry, Prometheus, Grafana
-  - Kubernetes
-  - CI/CD
-  - k6 load testing  
+## Core Product Capabilities
 
-This project is intended as a **full-stack learning system** covering advanced backend engineering patterns used in real companies.
+### 1) CV Ingestion and Reuse
 
----
+- Upload CV as PDF, LaTeX, or plain text.
+- Parse and store CV once, then reuse it across generation flows.
+- Check CV existence and fetch stored CV by ID.
 
-## ⚙️ Technology Stack
+### 2) Cover Letter Generation
 
-### Frontend
-- Chrome Extension (Manifest V3)
-- React (optional)
-- JavaScript/TypeScript
-- Chrome Storage API
-- Fetch API for backend communication
+- Generate from stored CV ID + job description.
+- Generate from direct CV text when no file upload is used.
+- Support idempotency keys for safe retries on expensive POST requests.
 
-### Backend
-- **.NET 10.0**
-- Minimal APIs
-- gRPC (future)
-- Groq LLaMA3 via OpenAI-compatible API
-- Outbox pattern
-- Background workers
-- PostgreSQL (future)
-- Docker / Kubernetes (future)
+### 3) CV Customization with LaTeX Pipeline
 
-### Infrastructure & DevOps
-- Docker
-- Kubernetes (k8s)
-- Kustomize or Helm
-- GitHub Actions CI/CD
-- Prometheus + Grafana dashboards
-- OpenTelemetry (metrics/traces/logs)
-- RabbitMQ or Kafka (microservices communication)
-- k6 for load testing
+- Tailor CV for a target role using AI.
+- Return both editable LaTeX and rendered PDF.
+- Compile raw LaTeX to PDF through a dedicated API endpoint.
 
----
+### 4) Job Match Analysis
 
-## 🎯 Current Phase (Phase 1)
-- Single .NET 10 API  
-- Endpoint: `POST /generate-cover-letter`
-- Inputs: job description, CV text, optional prompt template  
-- Output: generated cover letter  
+- Analyze CV against a job description.
+- Return match-oriented feedback for alignment and gaps.
 
----
+### 5) LinkedIn Textarea Auto-Answer
 
-## 🚀 Getting Started
+- Inject AI assist buttons into LinkedIn application text inputs.
+- Generate answers grounded in CV content and optional job context.
+- Auto-fill generated answers back into the target field.
+
+### 6) User Prompt Personalization
+
+- Save, retrieve, and delete per-user prompts for:
+  - cv-customization
+  - cover-letter
+  - match-analysis
+  - textarea-answer
+- Fall back to defaults when user prompts are not defined.
+
+### 7) BYOK and Smart Rate Limiting
+
+- Without user key: sliding-window limit on expensive AI endpoints.
+- With user key: limiter bypass for higher throughput.
+- Key lifecycle endpoints: save, check (masked), delete.
+
+## API Feature Surface (Current)
+
+- CV: parse file, parse text, customize, compile LaTeX, get by ID, exists check, match analysis.
+- Cover letters: generate from CV ID, generate from direct text.
+- Textarea answers: generate LinkedIn/application answers from CV.
+- Settings: BYOK key management + per-service custom prompts.
+- Prompts: inspect default template set.
+
+## Architecture Notes
+
+- Backend follows layered architecture (Domain, Application, Infrastructure, API).
+- Request flow uses minimal APIs + MediatR pipeline + Result-based HTTP mapping.
+- Error handling is centralized with ProblemDetails responses.
+- Observability includes structured logs and metrics with Prometheus/Grafana/Loki integration.
+
+## Getting Started
 
 ### Quick Setup
 
@@ -76,18 +82,21 @@ cd ai-cover-letter-generator
 bash setup.sh
 ```
 
-The setup script will guide you through configuration. Then:
+Then run the API:
 
 ```bash
 cd src/CoverLetter.Api
 dotnet run
 ```
 
-Open: `http://localhost:5000/scalar/v1`
+API docs are available at:
 
-For detailed instructions, see [SETUP.md](SETUP.md).
+- http://localhost:5012/scalar/v1
+
+For detailed setup, see [SETUP.md](SETUP.md).
 
 ### Prerequisites
+
 - .NET 10 SDK
-- Docker & Docker Compose
-- A Groq API key (free at https://console.groq.com/keys)
+- Docker and Docker Compose
+- Groq API key (for BYOK mode)
