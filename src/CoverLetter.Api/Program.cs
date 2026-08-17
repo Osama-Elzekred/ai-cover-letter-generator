@@ -19,6 +19,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
+using CoverLetter.Api.HealthChecks;
 
 
 var builder = WebApplication.CreateBuilder(args);
