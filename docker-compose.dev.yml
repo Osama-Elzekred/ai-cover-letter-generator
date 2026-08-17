@@ -18,6 +18,25 @@ services:
     networks:
       - coverletter_network
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: coverletter_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - coverletter_network
+
   latex-compiler:
     build:
       context: ./src/CoverLetter.Infrastructure/Latex
@@ -42,13 +61,21 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=coverletter_dev;Username=postgres;Password=postgres
       - Groq__ApiKey=${GROQ_API_KEY}
       - Logging__Loki__Uri=http://loki:3100
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__UserName=guest
+      - RabbitMq__Password=guest
+      - CompileWorker__StoragePath=/data/pdfs
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       prometheus:
         condition: service_started
       loki:
         condition: service_started
+    volumes:
+      - pdfs_data:/data/pdfs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5012/health"]
       interval: 30s
@@ -118,6 +145,10 @@ volumes:
   loki_data:
     driver: local
   grafana_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  pdfs_data:
     driver: local
 
 networks:

@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddSingleton<IPromptRegistry, PromptRegistry>();
         services.AddSingleton<ICacheKeyBuilder, CacheKeyBuilder>();
         services.AddScoped<ICustomPromptService, CustomPromptService>();
+        services.AddScoped<ICompileJobEnqueuer, CompileJobEnqueuer>();
 
         return services;
     }

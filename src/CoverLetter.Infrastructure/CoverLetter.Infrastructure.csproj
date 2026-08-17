@@ -9,10 +9,14 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="PdfPig" Version="0.1.12" />
+    <PackageReference Include="prometheus-net" Version="8.2.1" />
+    <PackageReference Include="MassTransit" Version="9.2.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="9.2.0" />
     <PackageReference Include="Refit.HttpClientFactory" Version="9.0.2" />
   </ItemGroup>
 

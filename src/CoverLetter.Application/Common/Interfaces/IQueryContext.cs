@@ -14,4 +14,5 @@ public interface IQueryContext
   IQueryable<IdempotencyKey> IdempotencyKeys { get; }
   IQueryable<UserPrompt> UserPrompts { get; }
   IQueryable<UserApiKey> UserApiKeys { get; }
+  IQueryable<CompileJob> CompileJobs { get; }
 }

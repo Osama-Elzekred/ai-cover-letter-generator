@@ -12,11 +12,12 @@ namespace CoverLetter.Application.UseCases.CustomizeCv;
 
 /// <summary>
 /// Handler for CustomizeCvCommand.
-/// Uses AI to map CV text into a professional LaTeX template tailored to a job description.
+/// Uses AI to map CV text into a professional LaTeX template tailored to a job description,
+/// then enqueues the LaTeX compilation through the queue + worker pipeline.
 /// </summary>
 public sealed class CustomizeCvHandler(
     ILlmService llmService,
-    ILatexCompilerService latexCompilerService,
+    ICompileJobEnqueuer compileEnqueuer,
     ICvRepository cvRepository,
     IUserContext userContext,
     IPromptRegistry promptRegistry,
@@ -98,17 +99,26 @@ public sealed class CustomizeCvHandler(
 
             var latexSource = SanitiseLatexResponse(llmResponse.Value!.Content);
 
-            // 4. Compile LaTeX to PDF (unless LaTeX only requested)
-            byte[]? pdfBytes = null;
+            // 4. Enqueue compilation (unless LaTeX only requested).
+            Guid? jobId = null;
             if (!request.ReturnLatexOnly)
             {
-                logger.LogDebug("Compiling customized LaTeX to PDF for CV {CvId}", request.CvId);
-                pdfBytes = await latexCompilerService.CompileToPdfAsync(latexSource, cancellationToken);
+                logger.LogDebug("Enqueuing customized LaTeX compilation for CV {CvId}", request.CvId);
+                var enqueueResult = await compileEnqueuer.EnqueueAsync(
+                    userContext.UserId,
+                    request.IdempotencyKey,
+                    latexSource,
+                    cancellationToken);
+
+                if (enqueueResult.IsFailure)
+                    return Result<CustomizeCvResult>.Failure(enqueueResult.Errors, enqueueResult.Type);
+
+                jobId = enqueueResult.Value.JobId;
             }
 
             var result = new CustomizeCvResult(
-                PdfContent: pdfBytes,
-                LatexSource: latexSource,
+                JobId: jobId,
+                LatexSource: request.ReturnLatexOnly ? latexSource : null,
                 FileName: request.ReturnLatexOnly ? "customized_cv.tex" : "customized_cv.pdf",
                 Model: llmResponse.Value!.Model,
                 PromptTokens: llmResponse.Value.PromptTokens,

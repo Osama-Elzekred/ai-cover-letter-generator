@@ -21,6 +21,9 @@ public class AppDbContext : DbContext, IQueryContext, IUnitOfWork
   public DbSet<IdempotencyKey> IdempotencyKeys { get; set; } = null!;
   public DbSet<UserPrompt> UserPrompts { get; set; } = null!;
   public DbSet<UserApiKey> UserApiKeys { get; set; } = null!;
+  public DbSet<CompileJob> CompileJobs { get; set; } = null!;
+  public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
+  public DbSet<InboxProcessed> InboxProcessed { get; set; } = null!;
 
   IQueryable<Cv> IQueryContext.Cvs => Cvs;
   IQueryable<CoverLetterEntity> IQueryContext.CoverLetters => CoverLetters;
@@ -28,6 +31,7 @@ public class AppDbContext : DbContext, IQueryContext, IUnitOfWork
   IQueryable<IdempotencyKey> IQueryContext.IdempotencyKeys => IdempotencyKeys;
   IQueryable<UserPrompt> IQueryContext.UserPrompts => UserPrompts;
   IQueryable<UserApiKey> IQueryContext.UserApiKeys => UserApiKeys;
+  IQueryable<CompileJob> IQueryContext.CompileJobs => CompileJobs;
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {

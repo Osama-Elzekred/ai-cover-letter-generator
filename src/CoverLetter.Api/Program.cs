@@ -2,13 +2,13 @@ using Asp.Versioning;
 using CoverLetter.Api.Configuration;
 using CoverLetter.Api.Endpoints;
 using CoverLetter.Api.Extensions;
-using CoverLetter.Api.HealthChecks;
 using CoverLetter.Api.Logging;
 using CoverLetter.Api.Middleware;
 using CoverLetter.Api.Services;
 using CoverLetter.Application;
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Infrastructure;
+using CoverLetter.Infrastructure.HealthChecks;
 using CoverLetter.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -19,6 +19,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
+using CoverLetter.Api.HealthChecks;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -96,7 +97,8 @@ builder.Services.AddRateLimitingWithByok();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "dependency" })
     .AddCheck<MemoryCacheHealthCheck>("memory_cache", tags: new[] { "dependency" })
-    .AddCheck<LatexCompilerHealthCheck>("latex_compiler", tags: new[] { "dependency" });
+    .AddCheck<LatexCompilerHealthCheck>("latex_compiler", tags: new[] { "dependency" })
+    .AddCheck<MassTransitHealthCheck>("message_bus", tags: new[] { "dependency" });
 
 var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
