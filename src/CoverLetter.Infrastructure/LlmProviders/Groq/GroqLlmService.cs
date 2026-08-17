@@ -90,7 +90,7 @@ public sealed class GroqLlmService : ILlmService
       stopwatch.Stop();
       _logger.LogWarning(ex, "Groq provider rate limit hit after {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
       return Result.Failure<LlmResponse>(
-          "AI provider rate limit reached. Please retry in a few seconds, or use your own API key in Settings (BYOK) for higher limits.",
+          "Groq AI provider rate limit reached. Please retry in a few seconds, or use your own API key in Settings (BYOK) for higher limits.",
           ResultType.TooManyRequests);
     }
     catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)

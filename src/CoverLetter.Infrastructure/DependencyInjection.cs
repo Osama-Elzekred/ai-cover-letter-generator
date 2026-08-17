@@ -1,15 +1,21 @@
 using CoverLetter.Application.Common.Interfaces;
 using CoverLetter.Application.Repositories;
+using CoverLetter.Infrastructure.BackgroundServices;
+using CoverLetter.Infrastructure.Configuration;
 using CoverLetter.Infrastructure.CvParsers;
 using CoverLetter.Infrastructure.LlmProviders;
 using CoverLetter.Infrastructure.LlmProviders.Groq;
+using CoverLetter.Infrastructure.Messaging;
 using CoverLetter.Infrastructure.Persistence;
 using CoverLetter.Infrastructure.Repositories;
 using CoverLetter.Infrastructure.Services;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CoverLetter.Infrastructure;
 
@@ -25,6 +31,14 @@ public static class DependencyInjection
         // Bind Groq settings
         services.Configure<GroqSettings>(
             configuration.GetSection(GroqSettings.SectionName));
+
+        // Bind compile pipeline settings
+        services.Configure<RabbitMqSettings>(
+            configuration.GetSection(RabbitMqSettings.SectionName));
+        services.Configure<CompileWorkerSettings>(
+            configuration.GetSection(CompileWorkerSettings.SectionName));
+        // Expose the bound CompileWorkerSettings instance for direct constructor injection
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<CompileWorkerSettings>>().Value);
 
         // Register HttpClientFactory for dynamic Groq API clients (BYOK support)
         services.AddHttpClient("GroqClient");
@@ -72,8 +86,53 @@ public static class DependencyInjection
         services.AddScoped<IUserPromptRepository, DbUserPromptRepository>();
         services.AddScoped<IUserApiKeyRepository, DbUserApiKeyRepository>();
 
-        // Register LaTeX compiler service
+        // Compile pipeline repositories
+        services.AddScoped<ICompileJobRepository, DbCompileJobRepository>();
+        services.AddScoped<IOutboxMessageRepository, DbOutboxMessageRepository>();
+        services.AddScoped<IInboxProcessedRepository, DbInboxProcessedRepository>();
+
+        // Register LaTeX compiler service (used by the consumer)
         services.AddScoped<ILatexCompilerService, LatexCompilerService>();
+
+        // Compile result storage (file-backed volume)
+        services.AddScoped<ICompileResultStorage, FileCompileResultStorage>();
+
+        // MassTransit bus + RabbitMQ transport for compile job delivery
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<CompileJobConsumer>();
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                var rabbitMqSettings = context.GetRequiredService<IOptions<RabbitMqSettings>>().Value;
+                var workerSettings = context.GetRequiredService<IOptions<CompileWorkerSettings>>().Value;
+                var rabbitMqHost = new Uri($"rabbitmq://{rabbitMqSettings.Host}:{rabbitMqSettings.Port}{rabbitMqSettings.VirtualHost}");
+
+                cfg.Host(rabbitMqHost, h =>
+                {
+                    h.Username(rabbitMqSettings.UserName);
+                    h.Password(rabbitMqSettings.Password);
+                });
+
+                cfg.Message<CompileJobMessage>(m => m.SetEntityName(rabbitMqSettings.Exchange));
+
+                cfg.ReceiveEndpoint(rabbitMqSettings.Queue, e =>
+                {
+                    e.ConfigureConsumer<CompileJobConsumer>(context);
+                    e.PrefetchCount = (ushort)Math.Min(workerSettings.MaxConcurrency, ushort.MaxValue);
+                    e.UseMessageRetry(r => r.Exponential(
+                        workerSettings.MassTransitRetryAttempts,
+                        TimeSpan.FromSeconds(workerSettings.MassTransitRetryMinSeconds),
+                        TimeSpan.FromSeconds(workerSettings.MassTransitRetryMaxSeconds),
+                        TimeSpan.FromSeconds(workerSettings.MassTransitRetryIntervalSeconds)));
+                });
+            });
+        });
+
+        services.AddSingleton<ICompileMessagePublisher, MassTransitCompileMessagePublisher>();
+
+        // Compile pipeline background services (hosted inside the API process)
+        services.AddHostedService<OutboxDispatcherBackgroundService>();
 
         return services;
     }
